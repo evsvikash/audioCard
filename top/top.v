@@ -1,0 +1,222 @@
+`include "../usb_core/rtl/verilog/usbf_defines.v"
+
+module top (
+	input	CLK,		//AT LEAST 60MHz (is 50MHz, but PLL multiplies it)
+	input	NRST,
+
+	input	USB_CLKIN,     		//Phy OUTPUT 60Mhz Clock 
+	output	USB_CS,			//USB PHY select (1 - phy selected)
+	inout	[7:0] USB_DATA,
+	input	USB_DIR,
+	input	USB_FAULTN,			//set to 0 when overcurrent or reverse-voltage condition
+	input	USB_NXT,
+	output	USB_RESETN,		//Reset PHY
+	output	USB_STP,
+
+	output [7:0] LED
+);
+
+wire UTMI_TXVALID, UTMI_TXREADY, UTMI_RXVALID, UTMI_RXACTIVE, UTMI_RXERROR, UTMI_TERMSELECT;
+wire UTMI_DPPPULLDOWN, UTMI_DMPULLDOWN, UTMI_XCVRSELECT;
+wire USBF_WB_ACK, USBF_WB_WE, USBF_WB_STB, USBF_WB_CYC, USBF_INTA, USBF_INTB, USBF_SUSP;
+wire [7:0] UTMI_DATA_O, UTMI_DATA_I, USB_DATA_I, USB_DATA_O;
+wire [1:0] UTMI_OPMODE, UTMI_LINESTATE;
+wire [31:0] USBF_WB_DATA_I, USBF_WB_DATA_O;
+wire [`USBF_UFC_HADR:0] USBF_WB_ADDR;
+wire [`USBF_SSRAM_HADR:0] SRAM_ADDR;
+wire [31:0] SRAM_DATA, SRAM_DATA_I, SRAM_DATA_O;
+wire SRAM_WE;
+
+wire CLK_100M, CLK_PLL_LOCKED, CLK_50M, CLK_60M;
+reg NRST_CLK_100M;
+reg USB_RESETN_s, USB_RESET_s;
+
+wire TMP_RESETN;
+wire USB_STP_s;
+
+assign USB_STP = USB_STP_s;
+
+assign USB_DATA = (USB_DIR) ? 8'dz : USB_DATA_O;
+assign USB_DATA_I = (USB_DIR) ? USB_DATA : 8'dz;
+
+assign SRAM_DATA = (SRAM_WE) ? SRAM_DATA_O : 8'dz;
+assign SRAM_DATA_I = (SRAM_WE) ? 8'dz : SRAM_DATA;
+
+wire [7:0] LED_internal;
+assign LED = LED_internal;
+
+reg [24:0] cnt;
+reg testVal;
+always @(posedge CLK_60M) begin
+	cnt <= cnt + 1;
+	if (!cnt) begin
+		testVal <= !testVal;
+	end
+end
+
+/*assign LED_internal[0] = testVal;
+assign LED_internal[1] = USBF_INTA;
+assign LED_internal[2] = USBF_INTB;
+assign LED_internal[7:3] = 5'b11111;*/
+
+assign USB_CS = 1'b1;
+assign UTMI_DPPULLDOWN = 1'b0;
+assign UTMI_DMPULLDOWN = 1'b0;
+assign USB_RESETN = USB_RESETN_s;
+
+reg CLK_100M_tmp1, CLK_100M_tmp2;
+reg [24:0] cnt_rst;
+always @(posedge CLK_100M) begin
+	CLK_100M_tmp1 <= CLK_PLL_LOCKED & NRST;
+	CLK_100M_tmp2 <= CLK_100M_tmp1;
+
+	if (!CLK_100M_tmp2) begin
+		cnt_rst <= 25'd1;
+		NRST_CLK_100M <= 1'b0;
+		USB_RESETN_s <= 1'b0;
+		USB_RESET_s <= 1'b1;
+	end else if (cnt_rst) begin
+		cnt_rst <= cnt_rst + 1;
+		
+		NRST_CLK_100M <= 1'b0;
+		USB_RESETN_s <= 1'b1;
+
+		USB_RESET_s <= 1'b1;
+
+		if (cnt_rst < 500000) begin
+			USB_RESETN_s <= 1'b0;
+		end
+			
+	end else begin
+		NRST_CLK_100M <= 1'b1;
+		USB_RESETN_s <= 1'b1;
+		USB_RESET_s <= 1'b0;
+	end
+end
+	
+BUFG BUFG_0 (
+	.inclk(CLK),
+	.outclk(CLK_50M)
+);
+BUFG BUFG_1 (
+	.inclk(USB_CLKIN),
+	.outclk(CLK_60M)
+);
+
+clk_pll_100M clk_pll_100M_0 (
+	.areset(1'b0),
+	.inclk0(CLK_50M),
+	.c0(CLK_100M),
+	.locked(CLK_PLL_LOCKED)
+);
+
+ulpi_wrapper ulpi_wrapper_0 (
+	// ULPI Interface (PHY)
+	.ulpi_clk60_i(CLK_60M),
+	.ulpi_rst_i(USB_RESET_s),
+	.ulpi_data_i(USB_DATA_I),
+	.ulpi_data_o(USB_DATA_O),
+	.ulpi_dir_i(USB_DIR),
+	.ulpi_nxt_i(USB_NXT),
+	.ulpi_stp_o(USB_STP_s),
+	
+	// Register access (Wishbone pipelined access type)
+	// NOTE: Tie inputs to 0 if unused
+	.reg_addr_i(8'd0),
+	.reg_stb_i(1'd0),
+	.reg_we_i(1'd0),
+	.reg_data_i(8'd0),
+	.reg_data_o(),
+	.reg_ack_o(),
+	
+	// UTMI Interface (SIE)
+	.utmi_txvalid_i(UTMI_TXVALID),
+	.utmi_txready_o(UTMI_TXREADY),
+	.utmi_rxvalid_o(UTMI_RXVALID),
+	.utmi_rxactive_o(UTMI_RXACTIVE),
+	.utmi_rxerror_o(UTMI_RXERROR),
+	.utmi_data_o(UTMI_DATA_O),
+	.utmi_data_i(UTMI_DATA_I),
+	.utmi_xcvrselect_i({1'b0, UTMI_XCVRSELECT}),
+	.utmi_termselect_i(UTMI_TERMSELECT),
+	.utmi_opmode_i(UTMI_OPMODE),
+	.utmi_dppulldown_i(UTMI_DPPULLDOWN),
+	.utmi_dmpulldown_i(UTMI_DMPULLDOWN),
+	.utmi_linestate_o(UTMI_LINESTATE),
+	.led()	
+);
+
+usbf_top usbf_top_0 (
+	.clk_i(CLK_100M),
+	.rst_i(NRST_CLK_100M),
+	.wb_addr_i(USBF_WB_ADDR),
+	.wb_data_i(USBF_WB_DATA_I),
+	.wb_data_o(USBF_WB_DATA_O),
+	.wb_ack_o(USBF_WB_ACK),
+	.wb_we_i(USBF_WB_WE),
+	.wb_stb_i(USBF_WB_STB),
+	.wb_cyc_i(USBF_WB_CYC),
+	.inta_o(USBF_INTA),
+	.intb_o(USBF_INTB),
+	.dma_req_o(),
+	.dma_ack_i(16'b0),
+	.susp_o(USBF_SUSP),
+	.resume_req_i(1'b0),
+
+	.phy_clk_pad_i(CLK_60M),
+	.phy_rst_pad_o(TMP_RESETN),
+	
+	.DataOut_pad_o(UTMI_DATA_I),
+	.TxValid_pad_o(UTMI_TXVALID),
+	.TxReady_pad_i(UTMI_TXREADY),
+	
+	.DataIn_pad_i(UTMI_DATA_O),
+	.RxValid_pad_i(UTMI_RXVALID),
+	.RxActive_pad_i(UTMI_RXACTIVE),
+	.RxError_pad_i(UTMI_RXERROR),
+	
+	.XcvSelect_pad_o(UTMI_XCVRSELECT),
+	.TermSel_pad_o(UTMI_TERMSELECT),
+	.SuspendM_pad_o(),
+	.LineState_pad_i(UTMI_LINESTATE),
+	.OpMode_pad_o(UTMI_OPMODE),
+	.usb_vbus_pad_i(1'b0),
+	.VControl_Load_pad_o(),
+	.VControl_pad_o(),
+	.VStatus_pad_i(8'b0),
+	
+	.sram_adr_o(SRAM_ADDR),
+	.sram_data_i(SRAM_DATA_I),
+	.sram_data_o(SRAM_DATA_O),
+	.sram_re_o(),
+	.sram_we_o(SRAM_WE),
+
+	.led(LED_internal)
+);
+
+
+ram_sp_sr_sw #(.DATA_WIDTH(32), .ADDR_WIDTH(16)) ram_sp_sr_sw_0 (
+	.clk(CLK_60M),
+	.address(SRAM_ADDR),
+	.data(SRAM_DATA),
+	.cs(1'b1),
+	.we(SRAM_WE),
+	.oe(1'b1)
+);
+
+function_controller function_controller_0 (
+	.clk_i(CLK_100M),
+	.nrst_i(NRST_CLK_100M),
+	.wb_addr_o(USBF_WB_ADDR),
+	.wb_data_o(USBF_WB_DATA_I),
+	.wb_data_i(USBF_WB_DATA_O),
+	.wb_ack_i(USBF_WB_ACK),
+	.wb_we_o(USBF_WB_WE),
+	.wb_stb_o(USBF_WB_STB),
+	.wb_cyc_o(USBF_WB_CYC),
+	.inta_i(USBF_INTA),
+	.intb_i(USBF_INTB),
+	.led_o()
+);
+
+endmodule
