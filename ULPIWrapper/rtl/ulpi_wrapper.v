@@ -70,7 +70,9 @@ module ulpi_wrapper
     input  [1:0]      utmi_opmode_i,
     input             utmi_dppulldown_i,
     input             utmi_dmpulldown_i,
-    output [1:0]      utmi_linestate_o
+    output [1:0]      utmi_linestate_o,
+
+    output  [7:0]      led
 );
 
 //-----------------------------------------------------------------
@@ -111,7 +113,7 @@ begin
     xcvrselect_q    <= 2'b0;
     termselect_q    <= 1'b0;
     opmode_q        <= 2'b11;
-    phy_reset_q     <= 1'b1;
+    phy_reset_q     <= 1'b0;
 end
 else
 begin

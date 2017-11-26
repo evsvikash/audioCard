@@ -100,12 +100,12 @@
 
 // Uncomment the lines below to get various levels of debugging
 // verbosity ...
-`define USBF_DEBUG
+//`define USBF_DEBUG
 //`define USBF_VERBOSE_DEBUG
 
 // Uncomment the line below to run the test bench
 // Comment it out to use your own address parameters ...
-`define USBF_TEST_IMPL
+//`define USBF_TEST_IMPL
 
 // For each endpoint that should actually be instantiated,
 // set the below define value to a one. Uncomment the define
@@ -124,8 +124,8 @@
 `else
 		// Modify this section to suit your implementation
 		`define	USBF_HAVE_EP1	1
-		`define	USBF_HAVE_EP2	1
-		`define	USBF_HAVE_EP3	1
+//		`define	USBF_HAVE_EP2	1
+//		`define	USBF_HAVE_EP3	1
 		//`define	USBF_HAVE_EP4	1
 		//`define	USBF_HAVE_EP5	1
 		//`define	USBF_HAVE_EP6	1
@@ -159,12 +159,12 @@
 
 `else
 		// Modify this section to suit your implementation
-		`define USBF_UFC_HADR	12
+		`define USBF_UFC_HADR	16
 		// Address Decoding for Register File select
-		`define USBF_RF_SEL	(!wb_addr_i[12])
+		`define USBF_RF_SEL	(wb_addr_i[16])
 		// Address Decoding for Buffer Memory select
-		`define USBF_MEM_SEL	(wb_addr_i[12])
-		`define USBF_SSRAM_HADR	9
+		`define USBF_MEM_SEL	(!wb_addr_i[16])
+		`define USBF_SSRAM_HADR 13	
 		// The next statement determines if reset is async or sync.
 		// If the define is uncommented the reset will be ASYNC.
 		//`define USBF_ASYNC_RESET

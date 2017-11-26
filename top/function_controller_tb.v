@@ -1,4 +1,4 @@
-`include "../usb_core/rtl/verilog/usbf_defines.v"
+`include "../usb_core/rtl/usbf_defines.v"
 
 module function_controller_tb(
 output clk_o

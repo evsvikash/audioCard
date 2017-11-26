@@ -1,4 +1,4 @@
-`include "../usb_core/rtl/verilog/usbf_defines.v"
+`include "../usb_core/rtl/usbf_defines.v"
 
 module function_controller (
 	input clk_i,
@@ -198,7 +198,7 @@ begin
 			 * --------------------------------
 			 * EP_DIS:  Normal operation	(2)
 			 * EP_NO: 0			(4) <- endpoint number, you must assign to it.
-			 * LRG_OK: 0			(1)
+			 * LRG_OK: 1			(1)
 			 * SML_OK: 1			(1)
 			 * --------------------------------
 			 * DMAEN: 0			(1)
@@ -208,7 +208,7 @@ begin
 			 * MAX_PL_SZ:			(11)
 			 */
 				
-			WB_write(1'b0, `USBF_UFC_HADR'h40, 32'h00010A00, INIT_EP0_INT);
+			WB_write(1'b0, `USBF_UFC_HADR'h40, 32'h00030A00, INIT_EP0_INT);
 			led <= ~INIT_EP0_CSR;
 		end
 		INIT_EP0_INT: begin

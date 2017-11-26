@@ -1,4 +1,4 @@
-`include "../usb_core/rtl/verilog/usbf_defines.v"
+`include "../usb_core/rtl/usbf_defines.v"
 
 module top (
 	input	CLK,		//AT LEAST 60MHz (is 50MHz, but PLL multiplies it)
@@ -45,8 +45,8 @@ assign SRAM_DATA_I = (SRAM_WE) ? 8'dz : SRAM_DATA;
 wire [7:0] LED_internal;
 assign LED = LED_internal;
 
-reg [24:0] cnt;
-reg testVal;
+reg [24:0] cnt, cnt2;
+reg testVal, testVal2;
 always @(posedge CLK_60M) begin
 	cnt <= cnt + 1;
 	if (!cnt) begin
@@ -54,10 +54,25 @@ always @(posedge CLK_60M) begin
 	end
 end
 
-/*assign LED_internal[0] = testVal;
-assign LED_internal[1] = USBF_INTA;
+always @(posedge CLK_100M) begin
+	cnt2 <= cnt2 + 1;
+	if (!cnt2) begin
+		testVal2 <= !testVal2;
+	end
+end
+
+//assign LED_internal[5:0] = 6'b111111;
+assign LED_internal[6] = testVal;
+assign LED_internal[7] = testVal2;
+
+/*assign LED_internal[1] = USBF_INTA;
 assign LED_internal[2] = USBF_INTB;
-assign LED_internal[7:3] = 5'b11111;*/
+
+assign LED_internal[4] = USBF_WB_ACK;
+assign LED_internal[5] = USBF_WB_WE;
+assign LED_internal[6] = USBF_WB_STB;
+assign LED_internal[7] = USBF_WB_CYC;*/
+
 
 assign USB_CS = 1'b1;
 assign UTMI_DPPULLDOWN = 1'b0;
@@ -77,19 +92,25 @@ always @(posedge CLK_100M) begin
 		USB_RESET_s <= 1'b1;
 	end else if (cnt_rst) begin
 		cnt_rst <= cnt_rst + 1;
-		
-		NRST_CLK_100M <= 1'b0;
-		USB_RESETN_s <= 1'b1;
-
-		USB_RESET_s <= 1'b1;
 
 		if (cnt_rst < 500000) begin
 			USB_RESETN_s <= 1'b0;
+		end else begin
+			USB_RESETN_s <= 1'b1;
+		end
+
+		if (cnt_rst < 600000) begin
+			USB_RESET_s <= 1'b1;
+			NRST_CLK_100M <= 1'b0;
+		end else begin
+			USB_RESET_s <= 1'b0;
+			NRST_CLK_100M <= 1'b1;
 		end
 			
 	end else begin
 		NRST_CLK_100M <= 1'b1;
 		USB_RESETN_s <= 1'b1;
+
 		USB_RESET_s <= 1'b0;
 	end
 end
@@ -191,11 +212,10 @@ usbf_top usbf_top_0 (
 	.sram_re_o(),
 	.sram_we_o(SRAM_WE),
 
-	.led(LED_internal)
+	.led()
 );
 
-
-ram_sp_sr_sw #(.DATA_WIDTH(32), .ADDR_WIDTH(16)) ram_sp_sr_sw_0 (
+ram_sp_sr_sw #(.DATA_WIDTH(32), .ADDR_WIDTH(14)) ram_sp_sr_sw_0 (
 	.clk(CLK_60M),
 	.address(SRAM_ADDR),
 	.data(SRAM_DATA),
@@ -216,7 +236,7 @@ function_controller function_controller_0 (
 	.wb_cyc_o(USBF_WB_CYC),
 	.inta_i(USBF_INTA),
 	.intb_i(USBF_INTB),
-	.led_o()
+	.led_o(LED_internal[5:0])
 );
 
 endmodule

@@ -93,7 +93,10 @@ module usbf_wb(	// WISHBONE Interface
 		ma_adr, ma_dout, ma_din, ma_we, ma_req, ma_ack,
 
 		// Register File interface
-		rf_re, rf_we, rf_din, rf_dout);
+		rf_re, rf_we, rf_din, rf_dout
+		
+//		,led
+		);
 
 input		wb_clk, phy_clk;
 input		rst;
@@ -118,6 +121,7 @@ output		rf_re;
 output		rf_we;
 input	[31:0]	rf_din;
 output	[31:0]	rf_dout;
+//output  [7:0]   led;
 
 ///////////////////////////////////////////////////////////////////
 //
@@ -179,6 +183,9 @@ assign	rf_we = rf_we_d;
 //
 // Interface State Machine
 //
+
+/*assign led[5:0] = ~state;
+assign led[7:6] = 2'b11;*/
 
 `ifdef USBF_ASYNC_RESET
 always @(posedge phy_clk or negedge rst)
