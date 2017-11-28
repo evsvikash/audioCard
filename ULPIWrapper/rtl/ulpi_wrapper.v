@@ -70,9 +70,9 @@ module ulpi_wrapper
     input  [1:0]      utmi_opmode_i,
     input             utmi_dppulldown_i,
     input             utmi_dmpulldown_i,
-    output [1:0]      utmi_linestate_o,
+    output [1:0]      utmi_linestate_o
 
-    output  [7:0]      led
+    //,output  [7:0]      led
 );
 
 //-----------------------------------------------------------------

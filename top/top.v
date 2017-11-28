@@ -42,7 +42,7 @@ assign USB_DATA_I = (USB_DIR) ? USB_DATA : 8'dz;
 assign SRAM_DATA = (SRAM_WE) ? SRAM_DATA_O : 8'dz;
 assign SRAM_DATA_I = (SRAM_WE) ? 8'dz : SRAM_DATA;
 
-wire [7:0] LED_internal;
+reg [7:0] LED_internal;
 assign LED = LED_internal;
 
 reg [24:0] cnt, cnt2;
@@ -62,8 +62,8 @@ always @(posedge CLK_100M) begin
 end
 
 //assign LED_internal[5:0] = 6'b111111;
-assign LED_internal[6] = testVal;
-assign LED_internal[7] = testVal2;
+//assign LED_internal[6] = testVal;
+//assign LED_internal[7] = testVal2;
 
 /*assign LED_internal[1] = USBF_INTA;
 assign LED_internal[2] = USBF_INTB;
@@ -131,6 +131,36 @@ clk_pll_100M clk_pll_100M_0 (
 	.locked(CLK_PLL_LOCKED)
 );
 
+reg [7:0] WB_TEST_ADDR;
+wire [7:0] WB_TEST_DATA_O;
+wire WB_TEST_ACK;
+reg WB_TEST_STB;
+reg [1:0] WB_TEST_STATE;
+always @(posedge CLK_60M, posedge USB_RESET_s) begin
+	if (USB_RESET_s) begin
+		WB_TEST_STB <= 1'b0;
+		WB_TEST_ADDR <= 8'd0;
+		LED_internal <= 8'd255;
+		WB_TEST_STATE <= 2'd0;
+	end else begin
+		if (WB_TEST_STATE == 2'd0) begin
+			if (WB_TEST_ACK == 1'b0) begin
+				WB_TEST_STB <= 1'b1;
+				WB_TEST_ADDR <= 8'd04;
+				WB_TEST_STATE <= 2'd1;
+			end
+		end else if (WB_TEST_STATE == 2'd1) begin
+			if (WB_TEST_ACK == 1'b1) begin
+				WB_TEST_STB <= 1'b0;
+				LED_internal <= WB_TEST_DATA_O;
+				WB_TEST_STATE <= 2'd2;
+			end
+		end else begin
+			WB_TEST_STATE <= WB_TEST_STATE;
+		end
+	end
+end
+
 ulpi_wrapper ulpi_wrapper_0 (
 	// ULPI Interface (PHY)
 	.ulpi_clk60_i(CLK_60M),
@@ -143,12 +173,12 @@ ulpi_wrapper ulpi_wrapper_0 (
 	
 	// Register access (Wishbone pipelined access type)
 	// NOTE: Tie inputs to 0 if unused
-	.reg_addr_i(8'd0),
-	.reg_stb_i(1'd0),
-	.reg_we_i(1'd0),
+	.reg_addr_i(WB_TEST_ADDR),
+	.reg_stb_i(WB_TEST_STB),
+	.reg_we_i(1'b0),
 	.reg_data_i(8'd0),
-	.reg_data_o(),
-	.reg_ack_o(),
+	.reg_data_o(WB_TEST_DATA_O),
+	.reg_ack_o(WB_TEST_ACK),
 	
 	// UTMI Interface (SIE)
 	.utmi_txvalid_i(UTMI_TXVALID),
@@ -163,8 +193,8 @@ ulpi_wrapper ulpi_wrapper_0 (
 	.utmi_opmode_i(UTMI_OPMODE),
 	.utmi_dppulldown_i(UTMI_DPPULLDOWN),
 	.utmi_dmpulldown_i(UTMI_DMPULLDOWN),
-	.utmi_linestate_o(UTMI_LINESTATE),
-	.led()	
+	.utmi_linestate_o(UTMI_LINESTATE)
+	//,.led()	
 );
 
 usbf_top usbf_top_0 (
@@ -210,9 +240,9 @@ usbf_top usbf_top_0 (
 	.sram_data_i(SRAM_DATA_I),
 	.sram_data_o(SRAM_DATA_O),
 	.sram_re_o(),
-	.sram_we_o(SRAM_WE),
+	.sram_we_o(SRAM_WE)
 
-	.led()
+	//,.led()
 );
 
 ram_sp_sr_sw #(.DATA_WIDTH(32), .ADDR_WIDTH(14)) ram_sp_sr_sw_0 (
@@ -236,7 +266,7 @@ function_controller function_controller_0 (
 	.wb_cyc_o(USBF_WB_CYC),
 	.inta_i(USBF_INTA),
 	.intb_i(USBF_INTB),
-	.led_o(LED_internal[5:0])
+	.led_o()
 );
 
 endmodule

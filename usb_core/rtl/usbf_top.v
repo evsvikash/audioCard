@@ -123,9 +123,9 @@ module usbf_top(// WISHBONE Interface
 		VControl_Load_pad_o, VControl_pad_o, VStatus_pad_i,
 
 		// Buffer Memory Interface
-		sram_adr_o, sram_data_i, sram_data_o, sram_re_o, sram_we_o,
-
-		led
+		sram_adr_o, sram_data_i, sram_data_o, sram_re_o, sram_we_o
+	
+//		,led
 
 		);
 
@@ -174,7 +174,7 @@ output	[31:0]	sram_data_o;
 output		sram_re_o;
 output		sram_we_o;
 
-output [7:0]	led;
+//output [7:0]	led;
 
 ///////////////////////////////////////////////////////////////////
 //
