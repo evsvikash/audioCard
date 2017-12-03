@@ -33,10 +33,7 @@ wire CLK_100M, CLK_PLL_LOCKED, CLK_50M, CLK_60M;
 reg NRST_CLK_100M, NRST_FUN_CON;
 reg USB_RESETN_s, USB_RESET_s;
 
-wire TMP_RESETN;
-wire USB_STP_s;
-
-assign USB_STP = USB_STP_s;
+wire USB_PHY_RESETN;
 
 assign USB_DATA = (USB_DIR) ? 8'dz : USB_DATA_O;
 assign USB_DATA_I = (USB_DIR) ? USB_DATA : 8'dz;
@@ -44,11 +41,15 @@ assign USB_DATA_I = (USB_DIR) ? USB_DATA : 8'dz;
 assign SRAM_DATA = (SRAM_WE) ? SRAM_DATA_O : 8'dz;
 assign SRAM_DATA_I = (SRAM_WE) ? 8'dz : SRAM_DATA;
 
-wire [7:0] LED_internal;
+reg [7:0] LED_internal, LED_wb_check;
+wire [7:0] LED_function_controller, LED_usbf_top, LED_ulpi_wrapper;
 assign LED = LED_internal;
 
-reg [24:0] cnt, cnt2;
-reg testVal, testVal2;
+reg [22:0] cnt;
+reg [25:0] cnt2;
+reg testVal;
+reg [2:0] testVal2;
+
 always @(posedge CLK_60M) begin
 	cnt <= cnt + 1;
 	if (!cnt) begin
@@ -57,22 +58,39 @@ always @(posedge CLK_60M) begin
 end
 
 always @(posedge CLK_100M) begin
-	cnt2 <= cnt2 + 1;
-	if (!cnt2) begin
-		testVal2 <= !testVal2;
+	if (!NRST_CLK_100M) begin
+		cnt2 <= 25'd1;
+		testVal2 <= 2'd0;
+	end else begin
+
+		cnt2 <= cnt2 + 1;
+		if (!cnt2) begin
+			testVal2 <= testVal2 + 1;
+			if (testVal2 == 3'd4)
+				testVal2 <= 3'd0;
+		end
+
+		if (testVal2 == 3'd0)
+			LED_internal <= LED_function_controller;
+		else if (testVal2 == 3'd1)
+			LED_internal <= LED_usbf_top;	
+		else if (testVal2 == 3'd2)
+			LED_internal <= LED_ulpi_wrapper;
+		else if (testVal2 == 3'd3)
+			LED_internal <= { 5'b11111, USBF_SUSPENDM, USBF_SUSP, testVal};
+		else if (testVal2 == 3'd4)
+			LED_internal <= LED_wb_check;
+	
 	end
 end
-
-assign LED_internal[3:0] = 4'b1111;
-assign LED_internal[4] = USBF_SUSPENDM;
-assign LED_internal[5] = USBF_SUSP;
-assign LED_internal[6] = testVal;
-assign LED_internal[7] = testVal2;
 
 assign USB_CS = 1'b1;
 assign UTMI_DPPULLDOWN = 1'b0;
 assign UTMI_DMPULLDOWN = 1'b0;
 assign USB_RESETN = USB_RESETN_s;
+
+assign LED_usbf_top = 8'd255;
+assign LED_ulpi_wrapper = 8'd255;
 
 reg CLK_100M_tmp1, CLK_100M_tmp2;
 reg [24:0] cnt_rst;
@@ -136,11 +154,12 @@ wire [7:0] WB_TEST_DATA_O;
 wire WB_TEST_ACK;
 reg WB_TEST_STB;
 reg [1:0] WB_TEST_STATE;
+
 always @(posedge CLK_60M, posedge USB_RESET_s) begin
 	if (USB_RESET_s) begin
 		WB_TEST_STB <= 1'b0;
 		WB_TEST_ADDR <= 8'd0;
-//		LED_internal <= 8'd255;
+		LED_wb_check <= 8'd255;
 		WB_TEST_STATE <= 2'd0;
 	end else begin
 		if (WB_TEST_STATE == 2'd0) begin
@@ -152,7 +171,7 @@ always @(posedge CLK_60M, posedge USB_RESET_s) begin
 		end else if (WB_TEST_STATE == 2'd1) begin
 			if (WB_TEST_ACK == 1'b1) begin
 				WB_TEST_STB <= 1'b0;
-				//LED_internal <= WB_TEST_DATA_O;
+				LED_wb_check <= WB_TEST_DATA_O;
 				WB_TEST_STATE <= 2'd2;
 			end
 		end else begin
@@ -172,7 +191,7 @@ ulpi_wrapper ulpi_wrapper_0 (
 	.ulpi_data_o(USB_DATA_O),
 	.ulpi_dir_i(USB_DIR),
 	.ulpi_nxt_i(USB_NXT),
-	.ulpi_stp_o(USB_STP_s),
+	.ulpi_stp_o(USB_STP),
 	
 	// Register access (Wishbone pipelined access type)
 	// NOTE: Tie inputs to 0 if unused
@@ -197,7 +216,7 @@ ulpi_wrapper ulpi_wrapper_0 (
 	.utmi_dppulldown_i(UTMI_DPPULLDOWN),
 	.utmi_dmpulldown_i(UTMI_DMPULLDOWN),
 	.utmi_linestate_o(UTMI_LINESTATE)
-	//,.led()	
+	//,.led(LED_ulpi_wrapper)	
 );
 
 usbf_top usbf_top_0 (
@@ -218,7 +237,7 @@ usbf_top usbf_top_0 (
 	.resume_req_i(1'b0),
 
 	.phy_clk_pad_i(CLK_60M),
-	.phy_rst_pad_o(TMP_RESETN),
+	.phy_rst_pad_o(USBF_PHY_RESETN),
 	
 	.DataOut_pad_o(UTMI_DATA_I),
 	.TxValid_pad_o(UTMI_TXVALID),
@@ -245,7 +264,7 @@ usbf_top usbf_top_0 (
 	.sram_re_o(SRAM_RE),
 	.sram_we_o(SRAM_WE)
 
-	//,.led()
+	//,.led(LED_usbf_top)
 );
 
 ram_sp_sr_sw #(.DATA_WIDTH(32), .ADDR_WIDTH(14)) ram_sp_sr_sw_0 (
@@ -269,7 +288,7 @@ function_controller function_controller_0 (
 	.wb_cyc_o(USBF_WB_CYC),
 	.inta_i(USBF_INTA),
 	.intb_i(USBF_INTB),
-	.led_o()
+	.led_o(LED_function_controller)
 );
 
 endmodule

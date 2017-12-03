@@ -177,17 +177,17 @@ begin
 		case (state)
 		IDLE: begin
 			IDLE_state();
-			led <= ~IDLE;
+//			led <= ~IDLE;
 		end
 		INIT_FA: begin
 			// reset function address
-			WB_write(1'b0, `USBF_UFC_HADR'h04, 32'd0, INIT_INT_MSK);
-			led <= ~INIT_FA;
+			WB_write(1'b0, `USBF_UFC_HADR'h04, 32'd0, INIT_EP0_CSR);
+//			led <= ~INIT_FA;
 		end
 		INIT_INT_MSK: begin
 			// Allow all interrupts on inta_i only (intb_i never interrupts).
-			WB_write(1'b0, `USBF_UFC_HADR'h08, 32'h000000ff, INIT_EP0_CSR);
-			led <= ~INIT_INT_MSK;
+			WB_write(1'b0, `USBF_UFC_HADR'h08, 32'h000000ff, IDLE);
+//			led <= ~INIT_INT_MSK;
 		end
 		INIT_EP0_CSR: begin
 			/*
@@ -209,12 +209,12 @@ begin
 			 */
 				
 			WB_write(1'b0, `USBF_UFC_HADR'h40, 32'h00030A00, INIT_EP0_INT);
-			led <= ~INIT_EP0_CSR;
+//			led <= ~INIT_EP0_CSR;
 		end
 		INIT_EP0_INT: begin
 			// Allow every interrupt
 			WB_write(1'b0, `USBF_UFC_HADR'h44, 32'h3f3f0000, INIT_EP0_BUF0);
-			led <= ~INIT_EP0_INT;
+//			led <= ~INIT_EP0_INT;
 		end
 		INIT_EP0_BUF0: begin
 			/*
@@ -223,7 +223,7 @@ begin
 			 * BUF_PTR: 0			(17)
 			 */
 			WB_write(1'b0, `USBF_UFC_HADR'h48, 32'h02000000, INIT_EP0_BUF1);
-			led <= ~INIT_EP0_BUF0;
+//			led <= ~INIT_EP0_BUF0;
 		end
 		INIT_EP0_BUF1: begin
 			/*
@@ -232,35 +232,35 @@ begin
 			 * BUF_PTR: 0x1000		(17)
 			 */
 			WB_write(1'b0, `USBF_UFC_HADR'h4c, 32'h02001000, INIT_EP1_CSR);
-			led <= ~INIT_EP0_BUF1;
+//			led <= ~INIT_EP0_BUF1;
 		end
 		INIT_EP1_CSR: begin
-			WB_write(1'b0, `USBF_UFC_HARD'h50, 32'b00000100000001010000101000000000, INIT_EP1_INT);
-			led <= ~INIT_EP1_CSR;
+			WB_write(1'b0, `USBF_UFC_HADR'h50, 32'b00000100000001010000101000000000, INIT_EP1_INT);
+//			led <= ~INIT_EP1_CSR;
 		end
 		INIT_EP1_INT: begin
-			WB_write(1'b0, `USBF_UFC_HARD'h54, 32'h3f3f0000, INIT_EP1_BUF0);
-			led <= ~INIT_EP1_INT;
+			WB_write(1'b0, `USBF_UFC_HADR'h54, 32'h3f3f0000, INIT_EP1_BUF0);
+//			led <= ~INIT_EP1_INT;
 		end
 		INIT_EP1_BUF0: begin
 			WB_write(1'b0, `USBF_UFC_HADR'h58, 32'h02002000, INIT_EP1_BUF1);
-			led <= ~INIT_EP1_BUF0;
+//			led <= ~INIT_EP1_BUF0;
 		end
 		INIT_EP1_BUF1: begin
-			WB_write(1'b0, `USBF_UFC_HADR'h5c, 32'h02003000, IDLE);
-			led <= ~INIT_EP1_BUF1;
+			WB_write(1'b0, `USBF_UFC_HADR'h5c, 32'h02003000, INIT_INT_MSK);
+//			led <= ~INIT_EP1_BUF1;
 		end
 		END_WB_WR: begin
 			WB_end_write();
-			led <= ~END_WB_WR;
+		//	led <= ~END_WB_WR; //CAUSES FPGA FREEZE
 		end
 		END_WB_RD: begin
 			WB_end_read();
-			led <= ~END_WB_RD;
+		//	led <= ~END_WB_RD;
 		end
 		INTERRUPT: begin
 			INTERRUPT_state();
-			led <= ~INTERRUPT;
+//			led <= ~INTERRUPT;
 		end
 		EP0_INT: begin
 			state <= EP0_INT;
