@@ -19,16 +19,18 @@ module top (
 wire UTMI_TXVALID, UTMI_TXREADY, UTMI_RXVALID, UTMI_RXACTIVE, UTMI_RXERROR, UTMI_TERMSELECT;
 wire UTMI_DPPPULLDOWN, UTMI_DMPULLDOWN, UTMI_XCVRSELECT;
 wire USBF_WB_ACK, USBF_WB_WE, USBF_WB_STB, USBF_WB_CYC, USBF_INTA, USBF_INTB, USBF_SUSP;
+wire USBF_SUSPENDM, USBF_DMA_REQ, USBF_VCONTROL_LOAD;
+wire [3:0] USBF_VCONTROL_PAD;
 wire [7:0] UTMI_DATA_O, UTMI_DATA_I, USB_DATA_I, USB_DATA_O;
 wire [1:0] UTMI_OPMODE, UTMI_LINESTATE;
 wire [31:0] USBF_WB_DATA_I, USBF_WB_DATA_O;
 wire [`USBF_UFC_HADR:0] USBF_WB_ADDR;
 wire [`USBF_SSRAM_HADR:0] SRAM_ADDR;
 wire [31:0] SRAM_DATA, SRAM_DATA_I, SRAM_DATA_O;
-wire SRAM_WE;
+wire SRAM_WE, SRAM_RE;
 
 wire CLK_100M, CLK_PLL_LOCKED, CLK_50M, CLK_60M;
-reg NRST_CLK_100M;
+reg NRST_CLK_100M, NRST_FUN_CON;
 reg USB_RESETN_s, USB_RESET_s;
 
 wire TMP_RESETN;
@@ -42,7 +44,7 @@ assign USB_DATA_I = (USB_DIR) ? USB_DATA : 8'dz;
 assign SRAM_DATA = (SRAM_WE) ? SRAM_DATA_O : 8'dz;
 assign SRAM_DATA_I = (SRAM_WE) ? 8'dz : SRAM_DATA;
 
-reg [7:0] LED_internal;
+wire [7:0] LED_internal;
 assign LED = LED_internal;
 
 reg [24:0] cnt, cnt2;
@@ -61,18 +63,11 @@ always @(posedge CLK_100M) begin
 	end
 end
 
-//assign LED_internal[5:0] = 6'b111111;
-//assign LED_internal[6] = testVal;
-//assign LED_internal[7] = testVal2;
-
-/*assign LED_internal[1] = USBF_INTA;
-assign LED_internal[2] = USBF_INTB;
-
-assign LED_internal[4] = USBF_WB_ACK;
-assign LED_internal[5] = USBF_WB_WE;
-assign LED_internal[6] = USBF_WB_STB;
-assign LED_internal[7] = USBF_WB_CYC;*/
-
+assign LED_internal[3:0] = 4'b1111;
+assign LED_internal[4] = USBF_SUSPENDM;
+assign LED_internal[5] = USBF_SUSP;
+assign LED_internal[6] = testVal;
+assign LED_internal[7] = testVal2;
 
 assign USB_CS = 1'b1;
 assign UTMI_DPPULLDOWN = 1'b0;
@@ -88,6 +83,7 @@ always @(posedge CLK_100M) begin
 	if (!CLK_100M_tmp2) begin
 		cnt_rst <= 25'd1;
 		NRST_CLK_100M <= 1'b0;
+		NRST_FUN_CON <= 1'b0;
 		USB_RESETN_s <= 1'b0;
 		USB_RESET_s <= 1'b1;
 	end else if (cnt_rst) begin
@@ -99,16 +95,20 @@ always @(posedge CLK_100M) begin
 			USB_RESETN_s <= 1'b1;
 		end
 
-		if (cnt_rst < 600000) begin
+		if (cnt_rst < 500000 || USB_DIR == 1'b1) begin
 			USB_RESET_s <= 1'b1;
 			NRST_CLK_100M <= 1'b0;
+			NRST_FUN_CON <= 1'b0;
 		end else begin
+			cnt_rst <= 25'd0;
 			USB_RESET_s <= 1'b0;
 			NRST_CLK_100M <= 1'b1;
+			NRST_FUN_CON <= 1'b1;
 		end
 			
 	end else begin
 		NRST_CLK_100M <= 1'b1;
+		NRST_FUN_CON <= 1'b1;
 		USB_RESETN_s <= 1'b1;
 
 		USB_RESET_s <= 1'b0;
@@ -140,7 +140,7 @@ always @(posedge CLK_60M, posedge USB_RESET_s) begin
 	if (USB_RESET_s) begin
 		WB_TEST_STB <= 1'b0;
 		WB_TEST_ADDR <= 8'd0;
-		LED_internal <= 8'd255;
+//		LED_internal <= 8'd255;
 		WB_TEST_STATE <= 2'd0;
 	end else begin
 		if (WB_TEST_STATE == 2'd0) begin
@@ -152,14 +152,17 @@ always @(posedge CLK_60M, posedge USB_RESET_s) begin
 		end else if (WB_TEST_STATE == 2'd1) begin
 			if (WB_TEST_ACK == 1'b1) begin
 				WB_TEST_STB <= 1'b0;
-				LED_internal <= WB_TEST_DATA_O;
+				//LED_internal <= WB_TEST_DATA_O;
 				WB_TEST_STATE <= 2'd2;
 			end
 		end else begin
 			WB_TEST_STATE <= WB_TEST_STATE;
+			if (testVal)
+				WB_TEST_STATE <= 2'd0;
 		end
 	end
 end
+
 
 ulpi_wrapper ulpi_wrapper_0 (
 	// ULPI Interface (PHY)
@@ -209,7 +212,7 @@ usbf_top usbf_top_0 (
 	.wb_cyc_i(USBF_WB_CYC),
 	.inta_o(USBF_INTA),
 	.intb_o(USBF_INTB),
-	.dma_req_o(),
+	.dma_req_o(USBF_DMA_REQ),
 	.dma_ack_i(16'b0),
 	.susp_o(USBF_SUSP),
 	.resume_req_i(1'b0),
@@ -228,18 +231,18 @@ usbf_top usbf_top_0 (
 	
 	.XcvSelect_pad_o(UTMI_XCVRSELECT),
 	.TermSel_pad_o(UTMI_TERMSELECT),
-	.SuspendM_pad_o(),
+	.SuspendM_pad_o(USBF_SUSPENDM),
 	.LineState_pad_i(UTMI_LINESTATE),
 	.OpMode_pad_o(UTMI_OPMODE),
 	.usb_vbus_pad_i(1'b0),
-	.VControl_Load_pad_o(),
-	.VControl_pad_o(),
+	.VControl_Load_pad_o(USBF_VCONTROL_LOAD),
+	.VControl_pad_o(USBF_VCONTROL_PAD),
 	.VStatus_pad_i(8'b0),
 	
 	.sram_adr_o(SRAM_ADDR),
 	.sram_data_i(SRAM_DATA_I),
 	.sram_data_o(SRAM_DATA_O),
-	.sram_re_o(),
+	.sram_re_o(SRAM_RE),
 	.sram_we_o(SRAM_WE)
 
 	//,.led()
@@ -256,7 +259,7 @@ ram_sp_sr_sw #(.DATA_WIDTH(32), .ADDR_WIDTH(14)) ram_sp_sr_sw_0 (
 
 function_controller function_controller_0 (
 	.clk_i(CLK_100M),
-	.nrst_i(NRST_CLK_100M),
+	.nrst_i(NRST_FUN_CON),
 	.wb_addr_o(USBF_WB_ADDR),
 	.wb_data_o(USBF_WB_DATA_I),
 	.wb_data_i(USBF_WB_DATA_O),
