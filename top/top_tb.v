@@ -13,11 +13,9 @@ wire [7:0] usb_data;
 assign clk = clk100M;
 
 top DUT (
-	.CLK_50M(clk100M),
+	.CLK(clk100M),
 	.NRST(nrst),
 	.USB_CLKIN(clk60M),
-	.USB_CLKOUT(usb_clkout),
-	.USB_CLKOUT_NOPLL(usb_clkout_nopll), 	
 	.USB_CS(usb_cs),			
 	.USB_DATA(usb_data),
 	.USB_DIR(usb_dir),

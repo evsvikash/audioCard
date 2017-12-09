@@ -17,9 +17,9 @@ module top (
 );
 
 wire UTMI_TXVALID, UTMI_TXREADY, UTMI_RXVALID, UTMI_RXACTIVE, UTMI_RXERROR, UTMI_TERMSELECT;
-wire UTMI_DPPPULLDOWN, UTMI_DMPULLDOWN, UTMI_XCVRSELECT;
+wire UTMI_DPPULLDOWN, UTMI_DMPULLDOWN, UTMI_XCVRSELECT;
 wire USBF_WB_ACK, USBF_WB_WE, USBF_WB_STB, USBF_WB_CYC, USBF_INTA, USBF_INTB, USBF_SUSP;
-wire USBF_SUSPENDM, USBF_DMA_REQ, USBF_VCONTROL_LOAD;
+wire USBF_SUSPENDM, USBF_DMA_REQ, USBF_VCONTROL_LOAD, USBF_PHY_RESETN;
 wire [3:0] USBF_VCONTROL_PAD;
 wire [7:0] UTMI_DATA_O, UTMI_DATA_I, USB_DATA_I, USB_DATA_O;
 wire [1:0] UTMI_OPMODE, UTMI_LINESTATE;
@@ -47,7 +47,7 @@ assign LED = LED_internal;
 
 reg [22:0] cnt;
 reg [25:0] cnt2;
-reg testVal;
+reg testVal, testVal_synchr0, testVal_synchr1;
 reg [2:0] testVal2;
 
 always @(posedge CLK_60M) begin
@@ -70,16 +70,23 @@ always @(posedge CLK_100M) begin
 				testVal2 <= 3'd0;
 		end
 
-		if (testVal2 == 3'd0)
+		if (testVal2 == 3'd0) begin
 			LED_internal <= LED_function_controller;
-		else if (testVal2 == 3'd1)
+		end
+		else if (testVal2 == 3'd1) begin
 			LED_internal <= LED_usbf_top;	
-		else if (testVal2 == 3'd2)
+		end
+		else if (testVal2 == 3'd2) begin
 			LED_internal <= LED_ulpi_wrapper;
-		else if (testVal2 == 3'd3)
-			LED_internal <= { 5'b11111, USBF_SUSPENDM, USBF_SUSP, testVal};
-		else if (testVal2 == 3'd4)
+		end
+		else if (testVal2 == 3'd3) begin
+			testVal_synchr0 <= testVal;
+			testVal_synchr1 <= testVal_synchr0;
+			LED_internal <= { 3'b111, USBF_INTB, USBF_INTA, USBF_SUSPENDM, USBF_SUSP, testVal_synchr1};
+		end
+		else if (testVal2 == 3'd4) begin
 			LED_internal <= LED_wb_check;
+		end
 	
 	end
 end
@@ -94,6 +101,13 @@ assign LED_ulpi_wrapper = 8'd255;
 
 reg CLK_100M_tmp1, CLK_100M_tmp2;
 reg [24:0] cnt_rst;
+
+`ifdef DEBUG
+`define WAIT 50
+`else
+`define WAIT 500000
+`endif
+
 always @(posedge CLK_100M) begin
 	CLK_100M_tmp1 <= CLK_PLL_LOCKED & NRST;
 	CLK_100M_tmp2 <= CLK_100M_tmp1;
@@ -107,13 +121,13 @@ always @(posedge CLK_100M) begin
 	end else if (cnt_rst) begin
 		cnt_rst <= cnt_rst + 1;
 
-		if (cnt_rst < 500000) begin
+		if (cnt_rst < `WAIT) begin
 			USB_RESETN_s <= 1'b0;
 		end else begin
 			USB_RESETN_s <= 1'b1;
 		end
 
-		if (cnt_rst < 500000 || USB_DIR == 1'b1) begin
+		if (cnt_rst < `WAIT || USB_DIR == 1'b1) begin
 			USB_RESET_s <= 1'b1;
 			NRST_CLK_100M <= 1'b0;
 			NRST_FUN_CON <= 1'b0;
@@ -216,7 +230,6 @@ ulpi_wrapper ulpi_wrapper_0 (
 	.utmi_dppulldown_i(UTMI_DPPULLDOWN),
 	.utmi_dmpulldown_i(UTMI_DMPULLDOWN),
 	.utmi_linestate_o(UTMI_LINESTATE)
-	//,.led(LED_ulpi_wrapper)	
 );
 
 usbf_top usbf_top_0 (
@@ -264,7 +277,6 @@ usbf_top usbf_top_0 (
 	.sram_re_o(SRAM_RE),
 	.sram_we_o(SRAM_WE)
 
-	//,.led(LED_usbf_top)
 );
 
 ram_sp_sr_sw #(.DATA_WIDTH(32), .ADDR_WIDTH(14)) ram_sp_sr_sw_0 (
