@@ -50,6 +50,37 @@ reg [25:0] cnt2;
 reg testVal, testVal_synchr0, testVal_synchr1;
 reg [2:0] testVal2;
 
+assign USB_CS = 1'b1;
+assign UTMI_DPPULLDOWN = 1'b0;
+assign UTMI_DMPULLDOWN = 1'b0;
+assign USB_RESETN = USB_RESETN_s;
+
+assign LED_ulpi_wrapper = 8'd255;
+
+reg CLK_100M_tmp1, CLK_100M_tmp2;
+reg [24:0] cnt_rst;
+
+reg [7:0] WB_TEST_ADDR;
+wire [7:0] WB_TEST_DATA_O;
+wire WB_TEST_ACK;
+reg WB_TEST_STB;
+reg [1:0] WB_TEST_STATE;
+
+`ifdef DEBUG
+`define WAIT 50
+`else
+`define WAIT 500000
+`endif
+
+/*
+check_usb_ulpi check_usb_ulpi_u0 (
+	.acq_data_in ({1'b0, USB_DATA_O}),
+	.acq_trigger_in (USB_NXT),
+	.acq_clk (CLK_60M),
+	.storage_enable(1'b1)
+	);
+*/
+
 always @(posedge CLK_60M) begin
 	cnt <= cnt + 1;
 	if (!cnt) begin
@@ -59,8 +90,9 @@ end
 
 always @(posedge CLK_100M) begin
 	if (!NRST_CLK_100M) begin
-		cnt2 <= 25'd1;
-		testVal2 <= 2'd0;
+		cnt2 <= 25'd0;
+		testVal2 <= 3'd0;
+		LED_internal <= 8'd0;
 	end else begin
 
 		cnt2 <= cnt2 + 1;
@@ -91,33 +123,18 @@ always @(posedge CLK_100M) begin
 	end
 end
 
-assign USB_CS = 1'b1;
-assign UTMI_DPPULLDOWN = 1'b0;
-assign UTMI_DMPULLDOWN = 1'b0;
-assign USB_RESETN = USB_RESETN_s;
-
-assign LED_usbf_top = 8'd255;
-assign LED_ulpi_wrapper = 8'd255;
-
-reg CLK_100M_tmp1, CLK_100M_tmp2;
-reg [24:0] cnt_rst;
-
-`ifdef DEBUG
-`define WAIT 50
-`else
-`define WAIT 500000
-`endif
-
 always @(posedge CLK_100M) begin
 	CLK_100M_tmp1 <= CLK_PLL_LOCKED & NRST;
 	CLK_100M_tmp2 <= CLK_100M_tmp1;
 
 	if (!CLK_100M_tmp2) begin
-		cnt_rst <= 25'd1;
+
+		cnt_rst <= 25'd0;
 		NRST_CLK_100M <= 1'b0;
 		NRST_FUN_CON <= 1'b0;
 		USB_RESETN_s <= 1'b0;
-		USB_RESET_s <= 1'b1;
+		USB_RESET_s <= 1'b0;
+
 	end else if (cnt_rst) begin
 		cnt_rst <= cnt_rst + 1;
 
@@ -139,11 +156,18 @@ always @(posedge CLK_100M) begin
 		end
 			
 	end else begin
-		NRST_CLK_100M <= 1'b1;
-		NRST_FUN_CON <= 1'b1;
-		USB_RESETN_s <= 1'b1;
-
-		USB_RESET_s <= 1'b0;
+		if (!cnt_rst && !USB_RESETN_s) begin
+			cnt_rst <= 25'd1;
+			NRST_CLK_100M <= 1'b0;
+			NRST_FUN_CON <= 1'b0;
+			USB_RESETN_s <= 1'b0;
+			USB_RESET_s <= 1'b1;
+		end else begin
+			NRST_CLK_100M <= 1'b1;
+			NRST_FUN_CON <= 1'b1;
+			USB_RESETN_s <= 1'b1;
+			USB_RESET_s <= 1'b0;
+		end
 	end
 end
 	
@@ -163,17 +187,11 @@ clk_pll_100M clk_pll_100M_0 (
 	.locked(CLK_PLL_LOCKED)
 );
 
-reg [7:0] WB_TEST_ADDR;
-wire [7:0] WB_TEST_DATA_O;
-wire WB_TEST_ACK;
-reg WB_TEST_STB;
-reg [1:0] WB_TEST_STATE;
-
 always @(posedge CLK_60M, posedge USB_RESET_s) begin
 	if (USB_RESET_s) begin
 		WB_TEST_STB <= 1'b0;
 		WB_TEST_ADDR <= 8'd0;
-		LED_wb_check <= 8'd255;
+		LED_wb_check <= 8'd0;
 		WB_TEST_STATE <= 2'd0;
 	end else begin
 		if (WB_TEST_STATE == 2'd0) begin
@@ -247,7 +265,7 @@ usbf_top usbf_top_0 (
 	.dma_req_o(USBF_DMA_REQ),
 	.dma_ack_i(16'b0),
 	.susp_o(USBF_SUSP),
-	.resume_req_i(1'b0),
+	.resume_req_i(1'b1),
 
 	.phy_clk_pad_i(CLK_60M),
 	.phy_rst_pad_o(USBF_PHY_RESETN),
@@ -266,7 +284,7 @@ usbf_top usbf_top_0 (
 	.SuspendM_pad_o(USBF_SUSPENDM),
 	.LineState_pad_i(UTMI_LINESTATE),
 	.OpMode_pad_o(UTMI_OPMODE),
-	.usb_vbus_pad_i(1'b0),
+	.usb_vbus_pad_i(1'b1),
 	.VControl_Load_pad_o(USBF_VCONTROL_LOAD),
 	.VControl_pad_o(USBF_VCONTROL_PAD),
 	.VStatus_pad_i(8'b0),
@@ -275,7 +293,9 @@ usbf_top usbf_top_0 (
 	.sram_data_i(SRAM_DATA_I),
 	.sram_data_o(SRAM_DATA_O),
 	.sram_re_o(SRAM_RE),
-	.sram_we_o(SRAM_WE)
+	.sram_we_o(SRAM_WE),
+
+	.led(LED_usbf_top)
 
 );
 
@@ -289,7 +309,7 @@ ram_sp_sr_sw #(.DATA_WIDTH(32), .ADDR_WIDTH(14)) ram_sp_sr_sw_0 (
 );
 
 function_controller function_controller_0 (
-	.clk_i(CLK_100M),
+        .clk_i(CLK_100M),
 	.nrst_i(NRST_FUN_CON),
 	.wb_addr_o(USBF_WB_ADDR),
 	.wb_data_o(USBF_WB_DATA_I),

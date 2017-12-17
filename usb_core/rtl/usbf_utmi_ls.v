@@ -106,7 +106,8 @@ module usbf_utmi_ls( clk, rst,
 
 		// Misc Interfaces
 		mode_hs, usb_reset, usb_suspend, usb_attached,
-		suspend_clr
+		suspend_clr,
+		led
 		);
 
 input		clk;
@@ -130,6 +131,7 @@ output		usb_suspend;	// USB Suspend
 output		usb_attached;	// Attached to USB
 
 output		suspend_clr;
+output  [7:0]   led;
 
 ///////////////////////////////////////////////////////////////////
 //
@@ -170,6 +172,7 @@ reg		XcvSelect, xcv_set_hs, xcv_set_fs;
 reg	[1:0]	OpMode;
 reg		bit_stuff_on, bit_stuff_off;
 reg		usb_reset, usb_reset_d;
+reg	[7:0]	led, led_d;
 
 wire		ls_se0, ls_j, ls_k, ls_se1;
 reg		ls_k_r, ls_j_r, ls_se0_r;
@@ -254,6 +257,9 @@ always @(posedge clk)
 
 always @(posedge clk)
 	usb_reset <= usb_reset_d;
+
+always @(posedge clk)
+	led <= led_d;
 
 // ---------------------------------------------------------
 // Line State Detector
@@ -410,7 +416,7 @@ always @(posedge clk)
 `endif
 	if(!rst)		state <= POR;
 	else
-	if(usb_vbus)		state <= POR;
+	if(!usb_vbus)		state <= POR;
 	else			state <= next_state;
 
 always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
@@ -428,6 +434,7 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 	attached_set = 1'b0;
 	attached_clr = 1'b0;
 	usb_reset_d = 1'b0;
+	led_d = 8'd255;
 
 	fs_term_on = 1'b0;
 	fs_term_off = 1'b0;
@@ -453,6 +460,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 		bit_stuff_on  = 1'b0;
 		suspend_clr = 1'b1;
 		next_state = ATTACH;
+
+		led_d = ~8'd1;
 	     end
 
 	   NORMAL:	// Normal Operation
@@ -460,10 +469,10 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 		if(!mode_hs && T1_gt_2_5_uS && T1_st_3_0_mS && !idle_long)
 		   begin
 			me_cnt_clr = 1'b1;
-			next_state = RESET;
+		//	next_state = RESET;
 		   end
-		else
-		if(!mode_hs && T1_gt_3_0_mS)			
+		/*else 
+/*		if(!mode_hs && T1_gt_3_0_mS)			
 		   begin
 			idle_cnt_clr = 1'b1;
 			suspend_set = 1'b1;
@@ -477,7 +486,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 			xcv_set_fs = 1'b1;
 			fs_term_on = 1'b1;
 			next_state = RES_SUSP;
-		   end
+		   end*/
+		led_d = ~8'd2;
 	     end
 
 	   RES_SUSP:	// Decide if it's a Reset or Suspend Signaling
@@ -487,13 +497,14 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 			me_cnt_clr = 1'b1;
 			next_state = RESET;
 		   end
-		else
-		if(T2_gt_100_uS && j_long)
+	/*	else
+/*		if(T2_gt_100_uS && j_long)
 		   begin
 			idle_cnt_clr = 1'b1;
 			suspend_set = 1'b1;
 			next_state = SUSPEND;
-		   end
+		   end*/
+		led_d = ~8'd3;
 	     end
 
 	   SUSPEND:	// In Suspend
@@ -510,6 +521,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 		else
 		if(T1_gt_5_0_mS && resume_req_s)
 			next_state = RESUME_REQUEST;
+
+		led_d = ~8'd4;
 	     end
 
 	   RESUME:
@@ -526,11 +539,15 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 			me_cnt_clr = 1'b1;
 			next_state = RESUME_WAIT;
 		   end
+
+		led_d = ~8'd5;
 	     end
 
 	   RESUME_WAIT:
 	     begin
 		if(T2_gt_100_uS)	next_state = NORMAL;
+		
+		led_d = ~8'd6;
 	     end
 
 	   RESUME_REQUEST:	// Function Resume Request
@@ -544,6 +561,7 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 			me_cnt_clr = 1'b1;
 			next_state = RESUME_SIG;
 		   end
+		led_d = ~8'd7;
 	     end
 
 	   RESUME_SIG:	// Signal resume
@@ -552,6 +570,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 		drive_k_d = 1'b1;
 		// Stop driving after 1.5 mS
 		if(T2_gt_1_0_mS)		next_state = RESUME;
+
+		led_d = ~8'd8;
 	     end
 
 	   ATTACH:	// Attach To USB Detected
@@ -571,6 +591,7 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 			next_state = RESET;
 		   end
 		*/
+		led_d = ~8'd9;
 	     end
 
 	   RESET:	// In Reset
@@ -586,6 +607,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 			me_cnt_clr = 1'b1;
 			next_state = SPEED_NEG;
 		   end
+
+		led_d = ~8'd10;
 	     end
 
 	   SPEED_NEG:	// Speed Negotiation
@@ -594,6 +617,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 		chirp_cnt_clr = 1'b1;
 		// Start looking for 'K' after 1.5 mS
 		if(T2_gt_1_2_mS)	next_state = SPEED_NEG_K;
+
+		led_d = ~8'd11;
 	     end
 
 	   SPEED_NEG_K:
@@ -609,6 +634,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 			if(se0_long)
 				next_state = SPEED_NEG_FS;
 		   end
+
+		led_d = ~8'd12;
 	     end
 
 	   SPEED_NEG_J:
@@ -624,6 +651,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 			if(se0_long)
 				next_state = SPEED_NEG_FS;
 		   end
+
+		led_d = ~8'd13;
 	     end
 
 	   SPEED_NEG_HS:
@@ -633,6 +662,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 		fs_term_off = 1'b1;	// Turn FS termination Off
 		mode_set_hs = 1'b1;	// Change mode to HS
 		if(se0_long)		next_state = NORMAL;
+
+		led_d = ~8'd14;
 	     end
 
 	   SPEED_NEG_FS:
@@ -642,6 +673,8 @@ always @(state or mode_hs or idle_long or resume_req_s or me_cnt_100_ms or
 		fs_term_on = 1'b1;	// Turn FS termination On
 		mode_set_fs = 1'b1;	// Change mode to FS
 		next_state = NORMAL;
+
+		led_d = ~8'd15;
 	     end
 
 	endcase

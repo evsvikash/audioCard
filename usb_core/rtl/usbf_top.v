@@ -125,7 +125,7 @@ module usbf_top(// WISHBONE Interface
 		// Buffer Memory Interface
 		sram_adr_o, sram_data_i, sram_data_o, sram_re_o, sram_we_o
 	
-//		,led
+		,led
 
 		);
 
@@ -174,7 +174,7 @@ output	[31:0]	sram_data_o;
 output		sram_re_o;
 output		sram_we_o;
 
-//output [7:0]	led;
+output [7:0]	led;
 
 ///////////////////////////////////////////////////////////////////
 //
@@ -324,7 +324,8 @@ usbf_utmi_if	u0(
 		.usb_suspend(	usb_suspend	),
 		.usb_attached(	usb_attached	),
 		.resume_req(	resume_req_r	),
-		.suspend_clr(	suspend_clr	)
+		.suspend_clr(	suspend_clr	),
+		.led (led)
 		);
 
 // Protocol Layer

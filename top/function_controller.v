@@ -18,7 +18,7 @@ module function_controller (
 `define PARAM_SIZE 8
 parameter IDLE = `PARAM_SIZE'd1;
 parameter INIT_FA = `PARAM_SIZE'd2;
-parameter INIT_INT_MSK = `PARAM_SIZE'd3;
+parameter INIT_INT_MSK_1 = `PARAM_SIZE'd3;
 parameter INIT_EP0_CSR = `PARAM_SIZE'd4;
 parameter INIT_EP0_INT =  `PARAM_SIZE'd5;
 parameter INIT_EP0_BUF0 = `PARAM_SIZE'd6;
@@ -35,6 +35,8 @@ parameter WB_WR = `PARAM_SIZE'd16;
 parameter CHECK_INT = `PARAM_SIZE'd17;
 parameter CHECK_EP0_INT = `PARAM_SIZE'd18;
 parameter CHECK_EP1_INT = `PARAM_SIZE'd19;
+parameter TEST = `PARAM_SIZE'd20;
+parameter INIT_INT_MSK_2 = `PARAM_SIZE'd21;
 
 reg [`PARAM_SIZE - 1:0] state, stateAfterWB;
 reg [`PARAM_SIZE - 1:0] stateAfterWB_tmp;
@@ -66,7 +68,7 @@ reg [`USBF_UFC_HADR - 1 : 0]  addr_tmp;
 reg [31:0] data;
 reg [31:0] data_tmp;
 
-always @(state, regn, addr, data, stateAfterWB, wb_read_result, cnt)
+always @(state, regn, addr, data, stateAfterWB, wb_read_result, cnt, led)
 begin
 
 	wb_we = 1'b0;
@@ -81,36 +83,101 @@ begin
 	data_tmp = 32'd0;
 	cnt_tmp = cnt + 1;
 	stateAfterWB_tmp = IDLE;
-	
 
 	case (state)
 	IDLE: begin
-		led_tmp = ~wb_read_result[7:0];
+		led_tmp = ~wb_read_result[31:24];
 		if (cnt == 0) begin
 			regn_tmp = 1'b0;
 			addr_tmp = `USBF_UFC_HADR'h48;
 			stateAfterWB_tmp = IDLE;
 		end
 /*		if (wb_read_result[7:0])
-			led_tmp = ~8'b1;
-		if (wb_read_result[15:8])
+			led_tmp = ~8'd1;
+		else if (wb_read_result[15:8])
 			led_tmp = ~8'd2;
-		if (wb_read_result[23:16])
+		else if (wb_read_result[23:16])
 			led_tmp = ~8'd3;
-		if (wb_read_result[31:24])
+		else if (wb_read_result[31:24])
 			led_tmp = ~8'd4;
 		else
 			led_tmp = ~8'b11000011;*/
+//		led_tmp = ~IDLE;
 	end
 
-	INIT_FA: begin
-		// reset function address
+	INIT_INT_MSK_1: begin
+		// No interrupts.
 		regn_tmp = 1'b0;
-		addr_tmp = `USBF_UFC_HADR'h04;
+		addr_tmp = `USBF_UFC_HADR'h08;
 		stateAfterWB_tmp = INIT_EP0_CSR;
-		data_tmp = 32'd0;
+		data_tmp = 32'h00000000;	
 
-		led_tmp = ~INIT_FA;
+		led_tmp = ~INIT_INT_MSK_1;
+	end
+
+	INIT_EP0_BUF0: begin
+		/*
+		 * USED: 0			(1)
+		 * BUF_SZ: 256			(14)
+		 * BUF_PTR: 0			(17)
+		 */
+		regn_tmp = 1'b0;
+		addr_tmp = `USBF_UFC_HADR'h48;
+		stateAfterWB_tmp = IDLE;
+		data_tmp = 32'h20000000;
+
+		led_tmp = ~INIT_EP0_BUF0;
+	end
+
+	INIT_EP0_BUF1: begin
+		/*
+		 * USED: 0			(1)
+		 * BUF_SZ: 256			(14)
+		 * BUF_PTR: 0x1000		(17)
+		 */
+		regn_tmp = 1'b0;
+		addr_tmp = `USBF_UFC_HADR'h4C;
+		stateAfterWB_tmp = INIT_EP1_BUF0;
+		data_tmp = 32'h20000000;
+
+		led_tmp = ~INIT_EP0_BUF1;
+	end
+
+	INIT_EP1_BUF0: begin
+		regn_tmp = 1'b0;
+		addr_tmp = `USBF_UFC_HADR'h58;
+		stateAfterWB_tmp = INIT_EP1_BUF1;
+		data_tmp = 32'h20000000;
+
+		led_tmp = ~INIT_EP1_BUF0;
+	end
+
+	INIT_EP1_BUF1: begin
+		regn_tmp = 1'b0;
+		addr_tmp = `USBF_UFC_HADR'h5c;
+		stateAfterWB_tmp = INIT_EP0_INT;
+		data_tmp = 32'h20000000;
+
+		led_tmp = ~INIT_EP1_BUF1;
+	end
+
+	INIT_EP0_INT: begin
+		// Allow every interrupt
+		regn_tmp = 1'b0;
+		addr_tmp = `USBF_UFC_HADR'h44;
+		stateAfterWB_tmp = INIT_EP0_CSR;
+		data_tmp = 32'h3f000000;
+
+		led_tmp = ~INIT_EP0_INT;
+	end
+
+	INIT_EP1_INT: begin
+		regn_tmp = 1'b0;
+		addr_tmp = `USBF_UFC_HADR'h54;
+		stateAfterWB_tmp = INIT_EP0_CSR;
+		data_tmp = 32'h3f000000;
+
+		led_tmp = ~INIT_EP1_INT;
 	end
 
 	INIT_EP0_CSR: begin
@@ -139,88 +206,24 @@ begin
 		led_tmp = ~INIT_EP0_CSR;
 	end
 
-	INIT_EP0_BUF0: begin
-		/*
-		 * USED: 0			(1)
-		 * BUF_SZ: 256			(14)
-		 * BUF_PTR: 0			(17)
-		 */
-		regn_tmp = 1'b0;
-		addr_tmp = `USBF_UFC_HADR'h48;
-		stateAfterWB_tmp = INIT_EP0_BUF1;
-		data_tmp = 32'h10000000;
-
-		led_tmp = ~INIT_EP0_BUF0;
-	end
-
-	INIT_EP0_BUF1: begin
-		/*
-		 * USED: 0			(1)
-		 * BUF_SZ: 256			(14)
-		 * BUF_PTR: 0x1000		(17)
-		 */
-		regn_tmp = 1'b0;
-		addr_tmp = `USBF_UFC_HADR'h4C;
-		stateAfterWB_tmp = INIT_EP1_CSR;
-		data_tmp = 32'h10001000;
-
-		led_tmp = ~INIT_EP0_BUF1;
-	end
 
 	INIT_EP1_CSR: begin
 		regn_tmp = 1'b0;
 		addr_tmp = `USBF_UFC_HADR'h50;
-		stateAfterWB_tmp = INIT_EP1_BUF0;
+		stateAfterWB_tmp = INIT_INT_MSK_2;
 		data_tmp = 32'b00000100000001010000101000000000;
 
 		led_tmp = ~INIT_EP1_CSR;
 	end
 
-	INIT_EP1_BUF0: begin
-		regn_tmp = 1'b0;
-		addr_tmp = `USBF_UFC_HADR'h58;
-		stateAfterWB_tmp = INIT_EP1_BUF1;
-		data_tmp = 32'h10002000;
-
-		led_tmp = ~INIT_EP1_BUF0;
-	end
-
-	INIT_EP1_BUF1: begin
-		regn_tmp = 1'b0;
-		addr_tmp = `USBF_UFC_HADR'h5c;
-		stateAfterWB_tmp = INIT_EP0_INT;
-		data_tmp = 32'h10003000;
-
-		led_tmp = ~INIT_EP1_BUF1;
-	end
-
-	INIT_EP0_INT: begin
-		// Allow every interrupt
-		regn_tmp = 1'b0;
-		addr_tmp = `USBF_UFC_HADR'h44;
-		stateAfterWB_tmp = INIT_EP1_INT;
-		data_tmp = 32'h3f000000;
-
-		led_tmp = ~INIT_EP0_INT;
-	end
-
-	INIT_EP1_INT: begin
-		regn_tmp = 1'b0;
-		addr_tmp = `USBF_UFC_HADR'h54;
-		stateAfterWB_tmp = INIT_INT_MSK;
-		data_tmp = 32'h3f000000;
-
-		led_tmp = ~INIT_EP1_INT;
-	end
-
-	INIT_INT_MSK: begin
+	INIT_INT_MSK_2: begin
 		// Allow all interrupts on inta_i only (intb_i never interrupts).
 		regn_tmp = 1'b0;
 		addr_tmp = `USBF_UFC_HADR'h08;
 		stateAfterWB_tmp = IDLE;
 		data_tmp = 32'h000001ff;	
 
-		led_tmp = ~INIT_INT_MSK;
+		led_tmp = ~INIT_INT_MSK_2;
 	end
 
 	WB_WR: begin
@@ -241,7 +244,7 @@ begin
 			wb_addr = {1'b1, addr};
 		end	
 		
-	//	led_tmp = ~WB_WR;
+		led_tmp = led;
 	end
 	WB_RD: begin
 
@@ -259,7 +262,7 @@ begin
 			wb_addr = {1'b1, addr};
 		end
 
-		led_tmp = ~WB_RD;
+		led_tmp = led;
 	end
 
 	CHECK_INT: begin
@@ -267,10 +270,10 @@ begin
 		addr_tmp = `USBF_UFC_HADR'h0C;
 		stateAfterWB_tmp = INTERRUPT;
 
-		led_tmp = ~CHECK_INT;
+		led_tmp = led;
 	end
 	INTERRUPT: begin
-		led_tmp = ~INTERRUPT;
+		led_tmp = led;
 	end
 	EP0_INT: begin
 		led_tmp = ~EP0_INT;
@@ -296,6 +299,9 @@ begin
 		led_tmp = ~CHECK_EP1_INT;
 
 	end
+	TEST: begin
+		led_tmp <= 8'b01010101;
+	end
 	default: begin
 	end
 	endcase
@@ -304,15 +310,15 @@ end
 always @(posedge clk_i, negedge nrst_i)
 begin
 	if (!nrst_i) begin
-		state <= INIT_FA;
-		stateAfterWB <= INIT_FA;
+		state <= INIT_INT_MSK_1;
+		stateAfterWB <= 8'd0;
 
 		regn <= 1'b0;
 		addr <= `USBF_UFC_HADR'h00;
 		data <= 32'd0;
 		wb_read_result <= 32'd0;
 		cnt <= 26'd0;
-		led <= ~8'd64;
+		led <= 8'd0;
 
 	end else begin
 		
@@ -336,7 +342,10 @@ begin
 		INIT_FA: begin
 			state <= WB_WR;
 		end
-		INIT_INT_MSK: begin
+		INIT_INT_MSK_1: begin
+			state <= WB_WR;
+		end
+		INIT_INT_MSK_2: begin
 			state <= WB_WR;
 		end
 		INIT_EP0_CSR: begin
@@ -401,8 +410,11 @@ begin
 		EP1_INT: begin
 			state <= EP1_INT;
 		end
+		8'd0: begin
+			state <= INIT_INT_MSK_1;
+		end
 		default: begin
-			state <= INIT_FA;
+			state <= INIT_INT_MSK_1;
 		end
 		endcase
 	end

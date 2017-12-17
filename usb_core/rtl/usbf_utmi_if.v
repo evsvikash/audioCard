@@ -111,7 +111,8 @@ module usbf_utmi_if( // UTMI Interface (EXTERNAL)
 
 		// Misc Interfaces
 		mode_hs, usb_reset, usb_suspend, usb_attached,
-		resume_req, suspend_clr
+		resume_req, suspend_clr,
+		led
 		);
 
 input		phy_clk;
@@ -149,6 +150,7 @@ output		usb_attached;	// Attached to USB
 input		resume_req;
 
 output		suspend_clr;
+output [7:0]	led;
 
 ///////////////////////////////////////////////////////////////////
 //
@@ -248,7 +250,8 @@ usbf_utmi_ls	u0(
 		.usb_reset(	usb_reset	),
 		.usb_suspend(	usb_suspend	),
 		.usb_attached(	usb_attached	),
-		.suspend_clr(	suspend_clr	)
+		.suspend_clr(	suspend_clr	),
+		.led(led)
 		);
 
 endmodule
