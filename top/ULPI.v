@@ -124,6 +124,9 @@ always @(state, now_read_tmp, now_write_tmp, rxcmd, last_usb_dir, reg_addr, reg_
 		end else begin
 			// usb packet reception
 		end
+
+		if (REG_EN)
+			REG_FAIL_d = 1'b1;
 	end else begin
 	
 		case (state)
