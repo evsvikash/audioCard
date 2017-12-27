@@ -21,7 +21,7 @@ module top (
 wire CLK_100M, CLK_PLL_LOCKED, CLK_50M, CLK_60M;
 
 //NRST registers
-reg NRST_CLK_100M, NRST_A_USB;
+reg NRST_CLK_100M, NRST_A_USB, NRST_CLK_60M;
 
 //LED registers
 reg [7:0] LED_internal;
@@ -64,7 +64,7 @@ ULPI ULPI_0 (
 	.NRST_A_USB(NRST_A_USB),
 	.USB_DATA(USB_DATA),
 	.USB_DIR(USB_DIR),
-	.USB_FAULTN(USB_FAULT),
+	.USB_FAULTN(USB_FAULTN),
 	.USB_NXT(USB_NXT),
 	.USB_RESETN(USB_RESETN),
 	.USB_STP(USB_STP),
@@ -78,6 +78,9 @@ ULPI ULPI_0 (
 	.REG_FAIL(ulpi_reg_fail_tmp),
 	.RXCMD(ulpi_rxcmd_tmp),
 	.READY(ulpi_ready_tmp),
+
+	.IN_STRB(1'b0),
+
 	.LED(ulpi_led)
 );
 
@@ -86,13 +89,17 @@ ULPI ULPI_0 (
 parameter RESET = `PARAM_SIZE'd1;
 parameter W_FUN_CTRL = `PARAM_SIZE'd2;
 parameter R_FUN_CTRL = `PARAM_SIZE'd3;
-parameter WAIT = `PARAM_SIZE'd4;
-parameter WRITE = `PARAM_SIZE'd5;
-parameter READ  = `PARAM_SIZE'd6;
-parameter IDLE = `PARAM_SIZE'd7;
+parameter W_OTG_CTRL = `PARAM_SIZE'd4;
+parameter R_OTG_CTRL = `PARAM_SIZE'd5;
+parameter W_SCR_REG  = `PARAM_SIZE'd6;
+parameter R_SCR_REG  = `PARAM_SIZE'd7;
+parameter WAIT = `PARAM_SIZE'd8;
+parameter IDLE = `PARAM_SIZE'd9;
 
 `define REG_MAP_SIZE 6
 parameter FUNC_CTRL_REG = `REG_MAP_SIZE'h04;
+parameter OTG_CTRL_REG  = `REG_MAP_SIZE'h0A;
+parameter SCRATCH_REG   = `REG_MAP_SIZE'h16;
 
 reg [`PARAM_SIZE - 1 : 0] state, state_tmp, last_state, last_state_tmp, next_state, next_state_tmp;
 reg [7:0] reg_output, reg_output_tmp;
@@ -107,6 +114,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 
 		state <= RESET;
 		last_state <= RESET;
+		next_state <= RESET;
 
 		reg_output <= 8'd0;
 	end else begin
@@ -118,24 +126,36 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 
 		state <= state_tmp;
 		last_state <= last_state_tmp;
+		next_state <= next_state_tmp;
 
 		reg_output <= reg_output_tmp;
 	end
 end
 
-always @(NRST_A_USB, state, ulpi_reg_data_o_reg, ulpi_reg_done_reg, ulpi_reg_fail_reg, ulpi_rxcmd_reg, ulpi_ready_reg, last_state, next_state, reg_output) begin
+/*
+Peripheral Low Speed:
+XcvrSelect: 10b - FUNC_CTRL
+TermSelect: 1b - FUNC_CTRL
+OpMode: 00b - FUNC_CTRL
+DpPulldown: 0b
+DmPulldown: 0b
+*/
+
+always @(state, ulpi_reg_data_o_reg, ulpi_reg_done_reg, ulpi_reg_fail_reg, ulpi_rxcmd_reg, ulpi_ready_reg, last_state, next_state, reg_output) begin
 	state_tmp = state;
 	ulpi_reg_rw_tmp = 1'b0;
 	ulpi_reg_en_tmp = 1'b0;
 	last_state_tmp = last_state;	
 	next_state_tmp = next_state;
+	ulpi_reg_addr_tmp = 6'd0;
+	ulpi_reg_data_i_tmp = 8'd0;
 	
 	reg_output_tmp = reg_output;
 
 	case (state)
 	RESET: begin
 		if (ulpi_ready_reg)
-			state_tmp = W_FUN_CTRL;
+			state_tmp = W_SCR_REG;
 	end
 	W_FUN_CTRL: begin
 		ulpi_reg_addr_tmp = FUNC_CTRL_REG;
@@ -145,7 +165,17 @@ always @(NRST_A_USB, state, ulpi_reg_data_o_reg, ulpi_reg_done_reg, ulpi_reg_fai
 		ulpi_reg_en_tmp = 1'b1;
 		state_tmp = WAIT;
 		last_state_tmp = W_FUN_CTRL;
-		next_state_tmp = R_FUN_CTRL;
+		next_state_tmp = W_OTG_CTRL;
+	end
+	W_OTG_CTRL: begin
+		ulpi_reg_addr_tmp = OTG_CTRL_REG;
+		ulpi_reg_data_i_tmp = 8'b00000110;
+
+		ulpi_reg_rw_tmp = 1'b1;
+		ulpi_reg_en_tmp = 1'b1;
+		state_tmp = WAIT;
+		last_state_tmp = W_OTG_CTRL;
+		next_state_tmp = R_OTG_CTRL;
 	end
 	R_FUN_CTRL: begin
 		ulpi_reg_addr_tmp = FUNC_CTRL_REG;
@@ -155,6 +185,34 @@ always @(NRST_A_USB, state, ulpi_reg_data_o_reg, ulpi_reg_done_reg, ulpi_reg_fai
 		state_tmp = WAIT;
 		last_state_tmp = R_FUN_CTRL;
 		next_state_tmp = IDLE;	
+	end
+	R_OTG_CTRL: begin
+		ulpi_reg_addr_tmp = OTG_CTRL_REG;
+
+		ulpi_reg_rw_tmp = 1'b0;
+		ulpi_reg_en_tmp = 1'b1;
+		state_tmp = WAIT;
+		last_state_tmp = R_OTG_CTRL;
+		next_state_tmp = R_SCR_REG;		
+	end
+	W_SCR_REG: begin
+		ulpi_reg_addr_tmp = SCRATCH_REG;
+		ulpi_reg_data_i_tmp = 8'b01011010;
+
+		ulpi_reg_rw_tmp = 1'b1;
+		ulpi_reg_en_tmp = 1'b1;
+		state_tmp = WAIT;
+		last_state_tmp = W_SCR_REG;
+		next_state_tmp = R_SCR_REG;
+	end
+	R_SCR_REG: begin
+		ulpi_reg_addr_tmp = SCRATCH_REG;
+
+		ulpi_reg_rw_tmp = 1'b0;
+		ulpi_reg_en_tmp = 1'b1;
+		state_tmp = WAIT;
+		last_state_tmp = R_SCR_REG;
+		next_state_tmp = IDLE;		
 	end
 	WAIT: begin
 		if (ulpi_reg_done_reg) begin
@@ -213,15 +271,9 @@ reg [25:0] cnt2;
 reg testVal_synchr0, testVal_synchr1;
 reg [1:0] testVal2;
 
-reg [7:0] rxcmd_100, ulpi_led_100;
-always @(posedge CLK_100M) begin
-	rxcmd_100 <= ulpi_rxcmd_tmp;
-	ulpi_led_100 <= ulpi_led;
-end
-
 assign LED = LED_internal;
-always @(posedge CLK_100M) begin
-	if (!NRST_CLK_100M) begin
+always @(posedge CLK_60M, negedge NRST_A_USB) begin
+	if (!NRST_A_USB) begin
 		cnt2 <= 26'd0;
 		testVal2 <= 2'd0;
 		LED_internal <= 8'd0;
@@ -232,19 +284,16 @@ always @(posedge CLK_100M) begin
 			testVal2 <= testVal2 + 1;
 		end
 		if (testVal2 == 0) begin
-			testVal_synchr0 <= testVal;
-			testVal_synchr1 <= testVal_synchr0;
-			LED_internal <= { 6'b111111, testVal2, testVal_synchr1};
+			LED_internal <= { ~state[5:0], USB_DIR, testVal};
 		end else if (testVal2 == 1) begin
-			LED_internal <= ~rxcmd_100;
+			LED_internal <= ~ulpi_rxcmd_tmp;
 		end else if (testVal2 == 2) begin
-			LED_internal <= ~ulpi_led_100;
+			LED_internal <= ~ulpi_led;
 		end else begin
 			LED_internal <= ~reg_output;
 		end
 	
 	end
 end
-
 
 endmodule

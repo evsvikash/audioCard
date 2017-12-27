@@ -69,9 +69,10 @@ always begin
 		usb_dir = 1'b0; // go to POST_RESET
 		#80;
 		usb_dir = 1'b1; // send rxcmd 
-		usb_data_output = 8'd64;
+		usb_data_output = 8'd1;
 		#40;
 		usb_dir = 1'b0; // turnaround, wait for a CTRL REG write
+		usb_data_output = 8'd2;
 		#80;
 		usb_nxt = 1'b1;	// we are writing something
 		#40;
@@ -81,13 +82,45 @@ always begin
 				#10000000;
 			end	
 		end
-/*		#80;
+		
+		#120;
+		usb_dir = 1'b1; //we are resetting
+		#80;
+		usb_dir = 1'b0; //usb_dir down
+		#20;
+		usb_dir = 1'b1; //send rxcmd
+		usb_data_output = 8'd3;
+		#40;
+		usb_dir = 1'b0;
+		#80;
+		//now we should get OTG write
+		usb_nxt = 1'b1;
+		#40;
+		usb_nxt = 1'b0;
+		if (!usb_stp) begin
+			repeat(250) begin
+				#10000000;
+			end
+		end
+		//now we should get FUN CTRL write
+		#80;
+		usb_nxt = 1'b1;
+		#40;
+		usb_nxt = 1'b0;
+		if (!usb_stp) begin
+			repeat(250) begin
+				#10000000;
+			end
+		end
+		//we we should read FUN CTRL
+		#80;
 		usb_nxt = 1'b1;
 		#20;
 		usb_nxt = 1'b0;
 		usb_dir = 1'b1;
+		usb_data_output = 8'd4;
 		#40;
-		usb_dir = 1'b0;*/
+		usb_dir = 1'b0;
 		repeat(250) begin
 			#10000000;
 		end	
