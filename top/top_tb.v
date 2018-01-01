@@ -14,9 +14,11 @@ wire [7:0] usb_data_input;
 reg [7:0] usb_data_output;
 
 reg usb_dir, usb_nxt;
-
+reg usb_last_dir;
+wire write_possible;
 assign usb_data_input = usb_data_inout;
-assign usb_data_inout = (usb_dir == 1'b1) ? usb_data_output : 8'hzz;
+assign write_possible = usb_last_dir && usb_dir;
+assign usb_data_inout = (write_possible == 1'b1) ? usb_data_output : 8'hzz;
 
 assign clk = clk100M;
 
@@ -40,6 +42,10 @@ always begin
 		clk60M = ~clk60M;
 		#10;
 	end
+end
+
+always @(posedge clk60M) begin
+	usb_last_dir <= usb_dir;
 end
 
 always begin
@@ -69,9 +75,30 @@ always begin
 		usb_dir = 1'b0; // go to POST_RESET
 		#80;
 		usb_dir = 1'b1; // send rxcmd 
+		usb_data_output = 8'hzz;
+		#20;
 		usb_data_output = 8'd1;
-		#40;
-		usb_dir = 1'b0; // turnaround, wait for a CTRL REG write
+		#20;
+		usb_dir = 1'b0;
+		repeat(250) begin
+			#140;
+			usb_nxt = 1'b1;
+			#40;
+			usb_nxt = 1'b0;
+			#140;
+			usb_nxt = 1'b1;
+			#20;
+			usb_nxt = 1'b0;
+			usb_dir = 1'b1;
+			#20;
+			usb_data_output = 8'b01011010;
+			#20;
+			usb_dir = 1'b0;
+		end
+		repeat(250) begin
+			#10000000;
+		end
+/*		usb_dir = 1'b0; // turnaround, wait for a CTRL REG write
 		usb_data_output = 8'd2;
 		#80;
 		usb_nxt = 1'b1;	// we are writing something
@@ -123,7 +150,7 @@ always begin
 		usb_dir = 1'b0;
 		repeat(250) begin
 			#10000000;
-		end	
+		end	*/
 	end
 end
 
