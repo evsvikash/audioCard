@@ -6,7 +6,6 @@ module ULPI (
 
 	inout [7:0] USB_DATA,
 	input USB_DIR,
-	input USB_FAULTN,
 	input USB_NXT,
 	output USB_RESETN,
 	output USB_STP,
@@ -24,27 +23,25 @@ module ULPI (
 
 	output [7:0] RXCMD,
 
-	output READY,
+	output READY//,
 
 	//---------------------------------------------------------------------
 
-	output [7:0] LED
+	//output [7:0] LED
 );
 
 `define PARAM_SIZE 8
 
-parameter PRE_RESET = `PARAM_SIZE'd1;
-parameter RESET = `PARAM_SIZE'd2;
-parameter IDLE	      	= `PARAM_SIZE'd3;
-parameter REG_WRITE  	= `PARAM_SIZE'd4;
-parameter REG_WRITE_DATA = `PARAM_SIZE'd5;
-parameter REG_WRITE_END = `PARAM_SIZE'd6;
-parameter REG_READ      = `PARAM_SIZE'd7;
-parameter REG_READ_DATA = `PARAM_SIZE'd8;
-parameter REG_READ_END = `PARAM_SIZE'd9;
-parameter PHY_HAS_ABORTED = `PARAM_SIZE'd128;
-parameter POST_RESET    = `PARAM_SIZE'd11;
-parameter REG_WRITE_END_0 = `PARAM_SIZE'd12;
+parameter RESET = `PARAM_SIZE'd0;
+parameter IDLE	      	= `PARAM_SIZE'd1;
+parameter REG_WRITE  	= `PARAM_SIZE'd2;
+parameter REG_WRITE_DATA = `PARAM_SIZE'd3;
+parameter REG_WRITE_END = `PARAM_SIZE'd4;
+parameter REG_READ      = `PARAM_SIZE'd5;
+parameter REG_READ_DATA = `PARAM_SIZE'd6;
+parameter REG_READ_END = `PARAM_SIZE'd7;
+parameter PHY_HAS_ABORTED = `PARAM_SIZE'd8;
+parameter POST_RESET    = `PARAM_SIZE'd9;
 
 `define REG_MAP_SIZE 6
 parameter FUNC_CTRL_REG = `REG_MAP_SIZE'h04;
@@ -59,27 +56,23 @@ wire [7:0] USB_DATA_I, USB_DATA_O;
 
 wire now_write_a = !USB_DIR & !last_usb_dir;
 wire now_read_a = USB_DIR & last_usb_dir;
-
+reg usb_stupid_test;
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
-
-		state <= PRE_RESET;
+		state <= RESET;
 		rxcmd <= 8'd0;
 		reg_val <= 8'd0;
 		reg_addr <= 6'd0;
 
 		last_usb_dir <= 1'b0;
-
+		usb_stupid_test <= 1'b0;
 	end else begin
 		
 		last_usb_dir <= USB_DIR;
 
 		case (state)
-		PRE_RESET: begin
-			state <= RESET;
-		end
 		RESET: begin
-			if (last_usb_dir && USB_DIR) begin
+			if (last_usb_dir & USB_DIR) begin
 				rxcmd <= USB_DATA_I;
 				state <= POST_RESET;
 			end
@@ -90,6 +83,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		IDLE: begin
+			usb_stupid_test <= 1'b0;
 			if (REG_EN) begin
 				case (REG_RW)
 				1'b0: begin
@@ -108,16 +102,18 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		REG_WRITE: begin
-			if (!last_usb_dir && !USB_DIR) begin
-				if (USB_NXT) begin
+			if (!last_usb_dir & !USB_DIR) begin
+				if (USB_NXT & usb_stupid_test) begin
 					state <= REG_WRITE_DATA;
 				end 
+				usb_stupid_test <= 1'b1;
+
 			end else begin
 				state <= PHY_HAS_ABORTED;
 			end
 		end
 		REG_WRITE_DATA: begin
-			if (!last_usb_dir && !USB_DIR) begin
+			if (!last_usb_dir & !USB_DIR) begin
 				if (!USB_NXT) begin
 					state <= REG_WRITE_END;
 				end
@@ -126,10 +122,12 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		REG_WRITE_END: begin
+//			if (!USB_NXT) // <- with this we have 2 cycles with USB_STP == 1...
+			//Why?
 			state <= IDLE;
 		end
 		REG_READ: begin
-			if (!last_usb_dir && !USB_DIR) begin
+			if (!last_usb_dir & !USB_DIR) begin
 				if (USB_NXT) begin
 					state <= REG_READ_DATA;
 				end
@@ -138,7 +136,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		REG_READ_DATA: begin
-			if (last_usb_dir && USB_DIR) begin
+			if (last_usb_dir) begin
 				reg_val <= USB_DATA_I;
 				state <= REG_READ_END;
 			end else if (!last_usb_dir && !USB_DIR && USB_NXT) begin
@@ -162,18 +160,8 @@ end
 
 reg ready_a, USB_STP_a, REG_DONE_a, REG_FAIL_a;
 reg [7:0] USB_DATA_O_a, REG_DATA_O_a;
-
-always @(NRST_A_USB, state, reg_addr, reg_val, USB_NXT) begin	
+always @(NRST_A_USB, state, reg_addr, reg_val, USB_NXT) begin
 	case (state)
-	PRE_RESET: begin
-		ready_a = 1'b0;
-		USB_STP_a = 1'b1;
-		USB_DATA_O_a = 8'd0;
-
-		REG_DATA_O_a = 8'd0;
-		REG_DONE_a = 1'b0;
-		REG_FAIL_a = 1'b0;
-	end
 	RESET: begin
 		ready_a = 1'b0;
 		USB_STP_a = 1'b0;
@@ -213,12 +201,7 @@ always @(NRST_A_USB, state, reg_addr, reg_val, USB_NXT) begin
 	REG_WRITE_END: begin
 		ready_a = 1'b1;
 		USB_STP_a = 1'b1;
-		USB_DATA_O_a = 8'd0;
-
-		if (USB_NXT) begin
-			USB_STP_a = 1'b0;
-			USB_DATA_O_a = reg_val;
-		end
+		USB_DATA_O_a = reg_val;
 
 		REG_DATA_O_a = 8'd0;
 		REG_DONE_a = 1'b1;
@@ -294,7 +277,7 @@ assign READY = ready_a;
 assign REG_DONE = REG_DONE_a;
 assign REG_FAIL = REG_FAIL_a;
 
-assign LED = state;
+//assign LED = state;
 
 assign USB_DATA_I = USB_DATA;
 assign USB_DATA = (now_write_a == 1'b1) ? USB_DATA_O : 8'hzz;
