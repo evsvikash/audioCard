@@ -70,8 +70,8 @@ ULPI ULPI_0 (
 //-----------------------------------------------------------------------------
 `define PARAM_SIZE 8
 parameter RESET = `PARAM_SIZE'd1;
-parameter W_FUN_CTRL = `PARAM_SIZE'd2;
-parameter R_FUN_CTRL = `PARAM_SIZE'd3;
+parameter W_FUN_CTRL_REG = `PARAM_SIZE'd2;
+parameter R_FUN_CTRL_REG = `PARAM_SIZE'd3;
 parameter W_OTG_CTRL = `PARAM_SIZE'd4;
 parameter R_OTG_CTRL = `PARAM_SIZE'd5;
 parameter W_SCR_REG  = `PARAM_SIZE'd6;
@@ -81,13 +81,13 @@ parameter WAIT_WR = `PARAM_SIZE'd9;
 parameter IDLE = `PARAM_SIZE'd10;
 
 `define REG_MAP_SIZE 6
-parameter FUNC_CTRL_REG = `REG_MAP_SIZE'h04;
+parameter FUN_CTRL_REG = `REG_MAP_SIZE'h04;
 parameter OTG_CTRL_REG  = `REG_MAP_SIZE'h0A;
 parameter SCRATCH_REG   = `REG_MAP_SIZE'h16;
 
 reg [`PARAM_SIZE - 1 : 0] state;
 reg [7 : 0] ulpi_reg_data_o, ulpi_rxcmd_o;
-reg scratch_wr_rd;
+reg [12 : 0] scratch_wr_rd;
 
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
@@ -115,6 +115,16 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					state <= W_SCR_REG;
 				else if (scratch_wr_rd == 1)
 					state <= R_SCR_REG;
+				else if (scratch_wr_rd == 128)
+					state <= W_FUN_CTRL_REG;
+				else if (scratch_wr_rd == 2048)
+					state <= R_FUN_CTRL_REG;
+			end
+			W_FUN_CTRL_REG: begin
+				state <= WAIT_WR;
+			end
+			R_FUN_CTRL_REG: begin
+				state <= WAIT_RD;
 			end
 			W_SCR_REG: begin
 				state <= WAIT_WR;
@@ -196,6 +206,18 @@ always @(state, small_cnt) begin
 		ulpi_reg_data_i_a = 8'd0;
 		ulpi_reg_rw_a = 1'b0;
 		ulpi_reg_en_a = 1'b0;
+	end
+	W_FUN_CTRL_REG: begin
+		ulpi_reg_addr_a = FUN_CTRL_REG;
+		ulpi_reg_data_i_a = 8'b01100110;
+		ulpi_reg_rw_a = 1'b1;
+		ulpi_reg_en_a = 1'b1;
+	end
+	R_FUN_CTRL_REG: begin
+		ulpi_reg_addr_a = FUN_CTRL_REG;
+		ulpi_reg_data_i_a = 0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b1;
 	end
 	W_SCR_REG: begin
 		ulpi_reg_addr_a = SCRATCH_REG;

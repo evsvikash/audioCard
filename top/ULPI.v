@@ -42,6 +42,7 @@ parameter REG_READ_DATA = `PARAM_SIZE'd6;
 parameter REG_READ_END = `PARAM_SIZE'd7;
 parameter PHY_HAS_ABORTED = `PARAM_SIZE'd8;
 parameter POST_RESET    = `PARAM_SIZE'd9;
+parameter ULPI_RESET    = `PARAM_SIZE'd10;
 
 `define REG_MAP_SIZE 6
 parameter FUNC_CTRL_REG = `REG_MAP_SIZE'h04;
@@ -75,8 +76,12 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		RESET: begin
 			state <= POST_RESET;
 		end
+		ULPI_RESET: begin
+			if (USB_DIR)
+				state <= POST_RESET;
+		end
 		POST_RESET: begin
-			if (!last_usb_dir && !USB_DIR) begin
+			if (!last_usb_dir & !USB_DIR) begin
 				state <= IDLE;
 			end
 		end
@@ -99,7 +104,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					reg_addr <= REG_ADDR;
 					state <= REG_WRITE;
 					if ((REG_ADDR == 6'h04) && (REG_DATA_I & 8'b00100000))
-						next_state <= POST_RESET;
+						next_state <= ULPI_RESET;
 					else
 						next_state <= IDLE;
 				end
@@ -174,6 +179,18 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, USB_NXT) begin
 		ready_a = 1'b0;
 
 		USB_STP_a = 1'b1;
+		USB_DATA_O_a = 8'd0;
+
+		REG_DATA_O_a = 8'd0;
+		REG_DONE_a = 1'b0;
+		REG_FAIL_a = 1'b0;
+
+		RXCMD_a = 8'd0;
+	end
+	ULPI_RESET: begin
+		ready_a = 1'b0;
+
+		USB_STP_a = 1'b0;
 		USB_DATA_O_a = 8'd0;
 
 		REG_DATA_O_a = 8'd0;
