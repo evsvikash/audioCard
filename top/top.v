@@ -145,9 +145,31 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	end
 end
 
-assign LED = ~ulpi_reg_data_o;	
+reg [24:0] LED_cnt;
+reg LED_switch;
+reg [7:0] LED_output;
 
-reg [18:0] cnt;
+always @(posedge CLK_60M, negedge NRST_A_USB) begin
+	if (!NRST_A_USB) begin
+		LED_cnt <= 0;
+		LED_switch <= 0;
+	end else begin
+		LED_cnt <= LED_cnt + 1;
+		if (!LED_cnt)
+			LED_switch <= LED_switch + 1;
+	end
+end
+
+always @(LED_switch) begin
+	if (LED_switch)
+		LED_output <= ulpi_rxcmd_o;
+	else
+		LED_output <= ulpi_reg_data_o;
+end
+
+assign LED = ~LED_output;
+
+reg [20:0] cnt;
 reg[7:0] small_cnt;
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
