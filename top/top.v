@@ -19,26 +19,8 @@ wire CLK_60M;
 //NRST wire
 wire NRST_A_USB;
 
-/*BUFG BUFG_0 (
-	.inclk(CLK),
-	.outclk(CLK_50M)
-);
-BUFG BUFG_1 (
-	.inclk(USB_CLKIN),
-	.outclk(CLK_60M)
-);*/
-
 assign CLK_60M = USB_CLKIN;
 assign NRST_A_USB = NRST;
-
-/*clk_pll_100M clk_pll_100M_0 (
-	.areset(1'b0),
-	.inclk0(CLK_50M),
-	.c0(CLK_100M),
-	.locked(CLK_PLL_LOCKED)
-);*/
-
-
 
 wire [7:0] ulpi_reg_data_o_a;
 reg [7:0] ulpi_reg_data_i_a;
@@ -69,13 +51,13 @@ ULPI ULPI_0 (
 
 //-----------------------------------------------------------------------------
 `define PARAM_SIZE 8
-parameter RESET = `PARAM_SIZE'd1;
+parameter RESET = `PARAM_SIZE'd0;
 parameter W_FUN_CTRL_REG = `PARAM_SIZE'd2;
 parameter R_FUN_CTRL_REG = `PARAM_SIZE'd3;
-parameter W_OTG_CTRL_REG = `PARAM_SIZE'd4;
+//parameter W_OTG_CTRL_REG = `PARAM_SIZE'd4;
 parameter R_OTG_CTRL_REG = `PARAM_SIZE'd5;
-parameter W_SCR_REG  = `PARAM_SIZE'd6;
-parameter R_SCR_REG  = `PARAM_SIZE'd7;
+//parameter W_SCR_REG  = `PARAM_SIZE'd6;
+//parameter R_SCR_REG  = `PARAM_SIZE'd7;
 parameter WAIT_RD = `PARAM_SIZE'd8;
 parameter WAIT_WR = `PARAM_SIZE'd9;
 parameter IDLE = `PARAM_SIZE'd10;
@@ -85,81 +67,85 @@ parameter FUN_CTRL_REG = `REG_MAP_SIZE'h04;
 parameter OTG_CTRL_REG  = `REG_MAP_SIZE'h0A;
 parameter SCRATCH_REG   = `REG_MAP_SIZE'h16;
 
-reg [`PARAM_SIZE - 1 : 0] state, next_state, previous_state;
+
+reg [`PARAM_SIZE - 1 : 0] state;
 reg [7 : 0] ulpi_reg_data_o, ulpi_rxcmd_o;
-reg [12 : 0] scratch_wr_rd;
+//reg [20:0] cnt;
+reg [8:0] cnt;
+reg[7:0] small_cnt;
+reg only_once;
+
+//TODO: fails when added prev_state
 
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
 
 		state <= RESET;
-		next_state <= RESET;
-		previous_state <= RESET;
-		ulpi_reg_data_o <= 8'd0;
-		ulpi_rxcmd_o <= 8'd0;
-		scratch_wr_rd <= 0;
+
+		ulpi_reg_data_o <= 0;
+		ulpi_rxcmd_o <= 0;
+		cnt <= 0;
+		small_cnt <= 0;
+		only_once <= 0;
 
 	end else begin
 
 		ulpi_rxcmd_o <= ulpi_rxcmd_a;
 	
-		if (!ulpi_ready_a) begin
-
-			state <= RESET;
-			next_state <= RESET;
-			previous_state <= RESET;
-
-		end else begin
+		if (ulpi_ready_a) begin
 	
 			case (state)
 			RESET: begin
-				state <= W_OTG_CTRL_REG;
+				state <= IDLE;
 			end
 			IDLE: begin
-				scratch_wr_rd <= scratch_wr_rd + 1;
-				if (scratch_wr_rd == 1)
-					state <= R_SCR_REG;
-				else if (scratch_wr_rd == 2048)
+				cnt <= cnt + 1;
+				if (cnt == 1) begin
 					state <= R_FUN_CTRL_REG;
+				end else if (cnt == 450) begin
+					state <= W_FUN_CTRL_REG;
+				end else if (cnt == 256) begin
+					state <= R_OTG_CTRL_REG;
+/*				end else if (cnt == 3072) begin
+					state <= W_SCR_REG;
+					small_cnt <= small_cnt + 1;
+			/*	end else if (cnt == 4096) begin
+					state <= W_FUN_CTRL_REG;*/
+/*				end else if (cnt == 8192) begin
+					state <= R_SCR_REG;*/
+				end
 			end
-			W_OTG_CTRL_REG: begin
+/*			W_OTG_CTRL_REG: begin
 				state <= WAIT_WR; 
-				next_state <= W_FUN_CTRL_REG;
-				previous_state <= state;
+			end*/
+			R_OTG_CTRL_REG: begin
+				state <= WAIT_RD;
 			end
 			W_FUN_CTRL_REG: begin
 				state <= WAIT_WR;
-				next_state <= IDLE;
-				previous_state <= state;
 			end
 			R_FUN_CTRL_REG: begin
 				state <= WAIT_RD;
-				next_state <= IDLE;
-				previous_state <= state;
 			end
-			W_SCR_REG: begin
+/*			W_SCR_REG: begin
 				state <= WAIT_WR;
-				next_state <= IDLE;
-				previous_state <= state;
 			end
 			R_SCR_REG: begin
 				state <= WAIT_RD;
-				next_state <= IDLE;
-				previous_state <= state;
-			end
+			end*/
 			WAIT_WR: begin
 				if (ulpi_reg_done_a) begin
-					state <= next_state;
+					state <= IDLE;
 				end else if (ulpi_reg_fail_a) begin
-					state <= previous_state;
+					state <= IDLE;
 				end
 			end
 			WAIT_RD: begin
 				if (ulpi_reg_done_a) begin
-					state <= next_state;
+					state <= IDLE;
 					ulpi_reg_data_o <= ulpi_reg_data_o_a;
 				end else if (ulpi_reg_fail_a) begin
-					state <= previous_state;
+					state <= IDLE;
 				end
 			end
 			default: begin
@@ -170,45 +156,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	end
 end
 
-reg [24:0] LED_cnt;
-reg LED_switch;
-reg [7:0] LED_output;
-
-always @(posedge CLK_60M, negedge NRST_A_USB) begin
-	if (!NRST_A_USB) begin
-		LED_cnt <= 0;
-		LED_switch <= 0;
-	end else begin
-		LED_cnt <= LED_cnt + 1;
-		if (!LED_cnt)
-			LED_switch <= LED_switch + 1;
-	end
-end
-
-always @(LED_switch) begin
-	if (LED_switch)
-		LED_output <= ulpi_rxcmd_o;
-	else
-		LED_output <= ulpi_reg_data_o;
-end
-
-assign LED = ~LED_output;
-
-reg [20:0] cnt;
-reg[7:0] small_cnt;
-always @(posedge CLK_60M, negedge NRST_A_USB) begin
-	if (!NRST_A_USB) begin
-		cnt <= 0;
-		small_cnt <= 8'd0;
-	end else begin
-		cnt <= cnt + 1;
-		if (!cnt) begin
-			small_cnt <= small_cnt + 1;
-		end
-	end
-end
-
-always @(state, small_cnt) begin
+always @(state/*, small_cnt*/) begin
 	case (state)
 	RESET: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -222,9 +170,9 @@ always @(state, small_cnt) begin
 		ulpi_reg_rw_a = 1'b0;
 		ulpi_reg_en_a = 1'b0;
 	end
-	W_FUN_CTRL_REG: begin
+	W_FUN_CTRL_REG: begin // <-- can not write this register
 		ulpi_reg_addr_a = FUN_CTRL_REG;
-		ulpi_reg_data_i_a = 8'b01100110;
+		ulpi_reg_data_i_a = 8'b01000110;
 		ulpi_reg_rw_a = 1'b1;
 		ulpi_reg_en_a = 1'b1;
 	end
@@ -234,13 +182,19 @@ always @(state, small_cnt) begin
 		ulpi_reg_rw_a = 1'b0;
 		ulpi_reg_en_a = 1'b1;
 	end
-	W_OTG_CTRL_REG: begin
+/*	W_OTG_CTRL_REG: begin
 		ulpi_reg_addr_a = OTG_CTRL_REG;
-		ulpi_reg_data_i_a = 0;
+		ulpi_reg_data_i_a = 8'b00000110;
 		ulpi_reg_rw_a = 1'b1;
 		ulpi_reg_en_a = 1'b1; 
+	end*/
+	R_OTG_CTRL_REG: begin
+		ulpi_reg_addr_a = OTG_CTRL_REG;
+		ulpi_reg_data_i_a = 0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b1; 
 	end
-	W_SCR_REG: begin
+/*	W_SCR_REG: begin
 		ulpi_reg_addr_a = SCRATCH_REG;
 		ulpi_reg_data_i_a = small_cnt;
 		ulpi_reg_rw_a = 1'b1;
@@ -251,7 +205,7 @@ always @(state, small_cnt) begin
 		ulpi_reg_data_i_a = 8'd0;
 		ulpi_reg_rw_a = 1'b0;
 		ulpi_reg_en_a = 1'b1;
-	end
+	end*/
 	WAIT_WR: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
@@ -272,5 +226,7 @@ always @(state, small_cnt) begin
 	end
 	endcase
 end
+
+assign LED = ~ulpi_reg_data_o;
 
 endmodule

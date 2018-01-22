@@ -1,0 +1,8 @@
+1. always all states must be used - otherwise Altera fails?
+2. why state in wait_wr has failed? because problems with fun_ctrl_reg? <= must be sure
+3. why fun_ctrl_reg fails?
+	- tusb1210 causes that.
+	- scr_reg interfers with it?
+	- you can not write is very early!
+
+
