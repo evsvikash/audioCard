@@ -227,6 +227,6 @@ always @(state/*, small_cnt*/) begin
 	endcase
 end
 
-assign LED = ~ulpi_reg_data_o;
+assign LED = ~ulpi_rxcmd_o;
 
 endmodule

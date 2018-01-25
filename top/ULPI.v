@@ -42,15 +42,17 @@ parameter REG_READ_DATA = `PARAM_SIZE'd6;
 parameter REG_READ_END = `PARAM_SIZE'd7;
 parameter PHY_HAS_ABORTED = `PARAM_SIZE'd8;
 parameter POST_RESET    = `PARAM_SIZE'd9;
+parameter READ_DATA = `PARAM_SIZE'd10;
+parameter READ_DATA_FAIL = `PARAM_SIZE'd11;
 
 `define REG_MAP_SIZE 6
 parameter FUNC_CTRL_REG = `REG_MAP_SIZE'h04;
 
 reg [`PARAM_SIZE - 1 : 0] state;
-reg [7:0] reg_val, rxcmd;
+reg [7:0] reg_val, rxcmd, usb_data_i_reg;
 reg [5:0] reg_addr;
 
-reg last_usb_dir;
+reg last_usb_dir, last_usb_nxt;
 
 wire [7:0] USB_DATA_I, USB_DATA_O;
 
@@ -64,10 +66,15 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		reg_addr <= 6'd0;
 
 		last_usb_dir <= 1'b0;
+		last_usb_nxt <= 1'b0;	
+
+		usb_data_i_reg <= 8'd0;	
+
 		usb_stupid_test <= 1'b0;
 	end else begin
 		
 		last_usb_dir <= USB_DIR;
+		last_usb_nxt <= USB_NXT;
 
 		case (state)
 		RESET: begin
@@ -80,8 +87,8 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		end
 		IDLE: begin
 			usb_stupid_test <= 1'b0;
-			if (last_usb_dir & USB_DIR) begin
-				rxcmd <= USB_DATA_I;
+			if (USB_DIR) begin
+				state <= READ_DATA;
 			end
 
 			if (REG_EN) begin
@@ -149,6 +156,22 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			   the Link must retry the RegWrite (TXCMD) when the bus is idle. */
 			state <= IDLE;
 		end	
+		READ_DATA: begin
+			if (!USB_DIR) begin
+				state <= IDLE;
+			end else begin
+				if (!USB_NXT) begin
+					rxcmd <= USB_DATA_I;
+					if (SUB_DATA_I & 8'b00100000)
+						state <= READ_DATA_FAIL;
+				end else begin
+					usb_data_i_reg <= USB_DATA_I;			
+				end
+			end
+		end
+		READ_DATA_FAIL: begin
+			state <= IDLE;
+		end
 		default: begin
 			state <= IDLE;
 		end
@@ -159,7 +182,7 @@ end
 reg ready_a, USB_STP_a, REG_DONE_a, REG_FAIL_a;
 reg [7:0] USB_DATA_O_a, REG_DATA_O_a;
 reg [7:0] RXCMD_a;
-always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, USB_NXT) begin
+always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_reg) begin
 	case (state)
 	RESET: begin
 		ready_a = 1'b0;
@@ -279,6 +302,34 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, USB_NXT) begin
 		REG_DONE_a = 1'b0;
 		REG_FAIL_a = 1'b1;
 
+		RXCMD_a = rxcmd;
+	end
+	READ_DATA: begin
+		ready_a = 1'b1;
+	
+		USB_STP_a = 1'b0;
+		USB_DATA_O_a = 8'd0;
+		
+		REG_DATA_O_a = 8'd0;
+		REG_DONE_a = 1'b0;
+		REG_FAIL_a = 1'b0;
+		
+		RXCMD_a = rxcmd;
+
+		if (last_usb_nxt) begin
+			
+		end
+	end
+	READ_DATA_FAIL: begin
+		ready_a = 1'b1;
+	
+		USB_STP_a = 1'b0;
+		USB_DATA_O_a = 8'd0;
+		
+		REG_DATA_O_a = 8'd0;
+		REG_DONE_a = 1'b0;
+		REG_FAIL_a = 1'b0;
+		
 		RXCMD_a = rxcmd;
 	end
 	default: begin
