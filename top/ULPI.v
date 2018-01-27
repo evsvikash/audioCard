@@ -19,14 +19,26 @@ module ULPI (
 	input [7:0] REG_DATA_I,
 	output [7:0] REG_DATA_O,
 	output REG_DONE,
-	output REG_FAIL,
+	output REG_FAIL, //WARNING! IF REG_FAIL == 1, ALSO USB_DATA_OUT_FAIL AND USB_DATA_IN_FAIL == 1!
 
 	output [7:0] RXCMD,
 
-	output READY//,
+	output READY,//,
 
 	//---------------------------------------------------------------------
 
+	input [7:0] USB_DATA_IN,
+	output USB_DATA_IN_STRB,	// next packet ready for reception
+	input USB_DATA_IN_START_END,		// if IN_END == '1', TRANSMISSION ENDS
+	output USB_DATA_IN_FAIL,
+
+	//---------------------------------------------------------------------
+	
+	output [7:0] USB_DATA_OUT,
+	output USB_DATA_OUT_STRB,
+	output USB_DATA_OUT_END,
+	output USB_DATA_OUT_FAIL
+	
 	//output [7:0] LED
 );
 
@@ -43,16 +55,19 @@ parameter REG_READ_END = `PARAM_SIZE'd7;
 parameter PHY_HAS_ABORTED = `PARAM_SIZE'd8;
 parameter POST_RESET    = `PARAM_SIZE'd9;
 parameter READ_DATA = `PARAM_SIZE'd10;
-parameter READ_DATA_FAIL = `PARAM_SIZE'd11;
+parameter READ_DATA_END = `PARAM_SIZE'd11;
+parameter WRITE_DATA_PID = `PARAM_SIZE'd12;
+parameter WRITE_DATA = `PARAM_SIZE'd13;
+parameter WRITE_DATA_END = `PARAM_SIZE'd14;
 
 `define REG_MAP_SIZE 6
 parameter FUNC_CTRL_REG = `REG_MAP_SIZE'h04;
 
 reg [`PARAM_SIZE - 1 : 0] state;
-reg [7:0] reg_val, rxcmd, usb_data_i_reg;
+reg [7:0] reg_val, rxcmd, usb_data_i_reg, usb_data_o_reg;
 reg [5:0] reg_addr;
 
-reg last_usb_dir, last_usb_nxt;
+reg last_usb_dir, last_usb_nxt, usb_data_o_get_next, usb_data_i_set_next;
 
 wire [7:0] USB_DATA_I, USB_DATA_O;
 
@@ -68,9 +83,12 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		last_usb_dir <= 1'b0;
 		last_usb_nxt <= 1'b0;	
 
-		usb_data_i_reg <= 8'd0;	
+		usb_data_i_reg <= 8'd0;
+		usb_data_o_reg <= 0;	
 
 		usb_stupid_test <= 1'b0;
+		usb_data_o_get_next <= 0;
+		usb_data_i_set_next <= 0;
 	end else begin
 		
 		last_usb_dir <= USB_DIR;
@@ -87,11 +105,16 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		end
 		IDLE: begin
 			usb_stupid_test <= 1'b0;
+			usb_data_o_get_next <= 0;
+
 			if (USB_DIR) begin
 				state <= READ_DATA;
-			end
+			end else if (USB_DATA_IN_START_END) begin
+				usb_data_o_reg <= USB_DATA_IN;
+				usb_data_o_get_next <= 1;
 
-			if (REG_EN) begin
+			 	state <= WRITE_DATA_PID;
+			end else if (REG_EN) begin
 				case (REG_RW)
 				1'b0: begin
 					reg_val <= 8'd0;
@@ -151,27 +174,62 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		REG_READ_END: begin
 			state <= IDLE;
 		end
+		WRITE_DATA_PID: begin
+			usb_data_o_get_next <= 0;
+
+			if (!last_usb_dir & !USB_DIR) begin
+				if (USB_NXT & usb_stupid_test) begin
+					usb_data_o_reg <= USB_DATA_IN;
+					usb_data_o_get_next <= 1;
+					state <= WRITE_DATA;
+				end
+				usb_stupid_test <= 1'b1;
+			end else begin
+				state <= PHY_HAS_ABORTED; //MAY FAIL AND OMMIT RECEPTION OF RXCMD!
+			end
+		end
+		
+		WRITE_DATA: begin
+			usb_data_o_get_next <= 0;
+
+			if (USB_DIR) begin
+				state <= PHY_HAS_ABORTED;
+			end else if (USB_DATA_IN_START_END & USB_NXT) begin
+				state <= WRITE_DATA_END;
+			end else if (USB_NXT) begin
+				usb_data_o_reg <= USB_DATA_IN;
+				usb_data_o_get_next <= 1;
+			end
+		end
+		WRITE_DATA_END: begin
+			state <= IDLE;
+		end
+
+		READ_DATA: begin
+			usb_data_i_set_next <= 0;
+	
+			if (!USB_DIR) begin
+				state <= READ_DATA_END;
+			end else begin
+				if (!USB_NXT) begin
+					usb_data_i_reg <= 0;
+					rxcmd <= USB_DATA_I;
+					if (USB_DATA_I & 8'b00100000)
+						state <= PHY_HAS_ABORTED;
+				end else begin
+					usb_data_i_reg <= USB_DATA_I;
+					usb_data_i_set_next <= 1;		
+				end
+			end
+		end
+		READ_DATA_END: begin
+			state <= IDLE;
+		end
 		PHY_HAS_ABORTED: begin
 			/* If the PHY aborts the RegWrite by asserting dir,
 			   the Link must retry the RegWrite (TXCMD) when the bus is idle. */
 			state <= IDLE;
 		end	
-		READ_DATA: begin
-			if (!USB_DIR) begin
-				state <= IDLE;
-			end else begin
-				if (!USB_NXT) begin
-					rxcmd <= USB_DATA_I;
-					if (SUB_DATA_I & 8'b00100000)
-						state <= READ_DATA_FAIL;
-				end else begin
-					usb_data_i_reg <= USB_DATA_I;			
-				end
-			end
-		end
-		READ_DATA_FAIL: begin
-			state <= IDLE;
-		end
 		default: begin
 			state <= IDLE;
 		end
@@ -182,7 +240,12 @@ end
 reg ready_a, USB_STP_a, REG_DONE_a, REG_FAIL_a;
 reg [7:0] USB_DATA_O_a, REG_DATA_O_a;
 reg [7:0] RXCMD_a;
-always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_reg) begin
+
+reg USB_DATA_IN_STRB_a, USB_DATA_IN_FAIL_a;
+reg USB_DATA_OUT_STRB_a, USB_DATA_OUT_END_a, USB_DATA_OUT_FAIL_a;
+reg [7:0] USB_DATA_OUT_a;
+
+always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_reg, usb_data_o_reg, usb_data_o_get_next, usb_data_i_set_next) begin
 	case (state)
 	RESET: begin
 		ready_a = 1'b0;
@@ -195,6 +258,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = 8'd0;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	POST_RESET: begin
 		ready_a = 1'b0;
@@ -207,6 +278,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = 8'd0;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	REG_WRITE: begin //Write TXCMD
 		ready_a = 1'b1;
@@ -219,6 +298,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	REG_WRITE_DATA: begin
 		ready_a = 1'b1;
@@ -231,6 +318,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	REG_WRITE_END: begin
 		ready_a = 1'b1;
@@ -243,6 +338,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	REG_READ: begin //send TXCMD
 		ready_a = 1'b1;
@@ -255,6 +358,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	REG_READ_DATA: begin
 		ready_a = 1'b1;
@@ -267,6 +378,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	REG_READ_END: begin
 		ready_a = 1'b1;
@@ -279,6 +398,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	IDLE: begin
 		ready_a = 1'b1;
@@ -291,6 +418,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;
 	end
 	PHY_HAS_ABORTED: begin
 		ready_a = 1'b1;
@@ -303,6 +438,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b1;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 1;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 1;
+		USB_DATA_OUT_a = 0;
 	end
 	READ_DATA: begin
 		ready_a = 1'b1;
@@ -316,11 +459,15 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		
 		RXCMD_a = rxcmd;
 
-		if (last_usb_nxt) begin
-			
-		end
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = usb_data_i_set_next;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = usb_data_i_reg;			
 	end
-	READ_DATA_FAIL: begin
+	READ_DATA_END: begin
 		ready_a = 1'b1;
 	
 		USB_STP_a = 1'b0;
@@ -331,6 +478,74 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 		
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 1;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;	
+	end
+	WRITE_DATA_PID: begin
+		ready_a = 1'b1;
+	
+		USB_STP_a = 1'b0;
+		USB_DATA_O_a = {2'b01, usb_data_o_reg[5:0]};
+		
+		REG_DATA_O_a = 8'd0;
+		REG_DONE_a = 1'b0;
+		REG_FAIL_a = 1'b0;
+		
+		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = usb_data_o_get_next;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;	
+	end
+	WRITE_DATA: begin
+		ready_a = 1'b1;
+	
+		USB_STP_a = 1'b0;
+		USB_DATA_O_a = usb_data_o_reg;
+		
+		REG_DATA_O_a = 8'd0;
+		REG_DONE_a = 1'b0;
+		REG_FAIL_a = 1'b0;
+		
+		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = usb_data_o_get_next;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;	
+	end
+	WRITE_DATA_END: begin
+		ready_a = 1'b1;
+	
+		USB_STP_a = 1'b1;
+		USB_DATA_O_a = 8'd0;
+		
+		REG_DATA_O_a = 8'd0;
+		REG_DONE_a = 1'b0;
+		REG_FAIL_a = 1'b0;
+		
+		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;	
 	end
 	default: begin
 		ready_a = 1'b0;
@@ -343,6 +558,14 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		REG_FAIL_a = 1'b0;
 
 		RXCMD_a = rxcmd;
+
+		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_FAIL_a = 0;
+
+		USB_DATA_OUT_STRB_a = 0;
+		USB_DATA_OUT_END_a = 0;
+		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_a = 0;	
 	end
 	endcase
 	
@@ -358,6 +581,13 @@ assign USB_DATA_O = USB_DATA_O_a;
 assign READY = ready_a;
 assign REG_DONE = REG_DONE_a;
 assign REG_FAIL = REG_FAIL_a;
+
+assign USB_DATA_IN_STRB = USB_DATA_IN_STRB_a;
+assign USB_DATA_IN_FAIL = USB_DATA_IN_FAIL_a;
+assign USB_DATA_OUT_STRB = USB_DATA_OUT_STRB_a;
+assign USB_DATA_OUT_END = USB_DATA_OUT_END_a;
+assign USB_DATA_OUT_FAIL = USB_DATA_OUT_FAIL_a;
+assign USB_DATA_OUT = USB_DATA_OUT_a;
 
 //assign LED = state;
 

@@ -29,6 +29,13 @@ wire [7:0] ulpi_rxcmd_a;
 wire ulpi_ready_a, ulpi_reg_done_a, ulpi_reg_fail_a;
 reg ulpi_reg_rw_a, ulpi_reg_en_a;
 
+reg [7:0] ulpi_usb_data_i_a;
+reg ulpi_usb_data_i_start_end_a;
+wire ulpi_usb_data_i_strb_a, ulpi_usb_data_i_fail_a;
+
+wire [7:0] ulpi_usb_data_o_a;
+wire ulpi_usb_data_o_strb_a, ulpi_usb_data_o_end_a, ulpi_usb_data_o_fail_a;
+
 ULPI ULPI_0 (
 	.CLK_60M(CLK_60M),
 	.NRST_A_USB(NRST_A_USB),
@@ -46,7 +53,15 @@ ULPI ULPI_0 (
 	.REG_DONE(ulpi_reg_done_a),
 	.REG_FAIL(ulpi_reg_fail_a),
 	.RXCMD(ulpi_rxcmd_a),
-	.READY(ulpi_ready_a)
+	.READY(ulpi_ready_a),
+	.USB_DATA_IN(ulpi_usb_data_i_a),
+	.USB_DATA_IN_STRB(ulpi_usb_data_i_strb_a),
+	.USB_DATA_IN_START_END(ulpi_usb_data_i_start_end_a),
+	.USB_DATA_IN_FAIL(ulpi_usb_data_i_fail_a),
+	.USB_DATA_OUT(ulpi_usb_data_o_a),
+	.USB_DATA_OUT_STRB(ulpi_usb_data_o_strb_a),
+	.USB_DATA_OUT_END(ulpi_usb_data_o_end_a),
+	.USB_DATA_OUT_FAIL(ulpi_usb_data_o_fail_a)
 );
 
 //-----------------------------------------------------------------------------
@@ -75,7 +90,7 @@ reg [8:0] cnt;
 reg[7:0] small_cnt;
 reg only_once;
 
-//TODO: fails when added prev_state
+//k-state - send 0; j-state - send 1 only
 
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
