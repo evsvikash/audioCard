@@ -19,25 +19,26 @@ module ULPI (
 	input [7:0] REG_DATA_I,
 	output [7:0] REG_DATA_O,
 	output REG_DONE,
-	output REG_FAIL, //WARNING! IF REG_FAIL == 1, ALSO USB_DATA_OUT_FAIL AND USB_DATA_IN_FAIL == 1!
+	output REG_FAIL, // WARNING! If we are in READ_DATA state, this output
+			 // is always 1, even if we have not failed!
 
 	output [7:0] RXCMD,
 
-	output READY,//,
+	output READY,
 
 	//---------------------------------------------------------------------
 
 	input [7:0] USB_DATA_IN,
-	output USB_DATA_IN_STRB,	// next packet ready for reception
-	input USB_DATA_IN_START_END,		// if IN_END == '1', TRANSMISSION ENDS
-	output USB_DATA_IN_FAIL,
+	output USB_DATA_IN_STRB,	// next chunk ready for reception
+	input USB_DATA_IN_START_END,	// if IN_START_END == '1', TRANSMISSION STARTS OR ENDS
+	output USB_DATA_IN_FAIL, //WARNING! The same behavior as in REG_FAIL output
 
 	//---------------------------------------------------------------------
 	
 	output [7:0] USB_DATA_OUT,
 	output USB_DATA_OUT_STRB,
 	output USB_DATA_OUT_END,
-	output USB_DATA_OUT_FAIL
+	output USB_DATA_OUT_FAIL //WARNING! The same behavior as in REG_FAIL output
 	
 	//output [7:0] LED
 );
@@ -52,7 +53,6 @@ parameter REG_WRITE_END = `PARAM_SIZE'd4;
 parameter REG_READ      = `PARAM_SIZE'd5;
 parameter REG_READ_DATA = `PARAM_SIZE'd6;
 parameter REG_READ_END = `PARAM_SIZE'd7;
-parameter PHY_HAS_ABORTED = `PARAM_SIZE'd8;
 parameter POST_RESET    = `PARAM_SIZE'd9;
 parameter READ_DATA = `PARAM_SIZE'd10;
 parameter READ_DATA_END = `PARAM_SIZE'd11;
@@ -139,7 +139,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				usb_stupid_test <= 1'b1;
 
 			end else begin
-				state <= PHY_HAS_ABORTED;
+				state <= READ_DATA;
 			end
 		end
 		REG_WRITE_DATA: begin
@@ -148,7 +148,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					state <= REG_WRITE_END;
 				end
 			end else begin
-				state <= PHY_HAS_ABORTED;
+				state <= READ_DATA;
 			end
 		end
 		REG_WRITE_END: begin
@@ -160,7 +160,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					state <= REG_READ_DATA;
 				end
 			end else begin
-				state <= PHY_HAS_ABORTED;
+				state <= READ_DATA;
 			end
 		end
 		REG_READ_DATA: begin
@@ -168,7 +168,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				reg_val <= USB_DATA_I;
 				state <= REG_READ_END;
 			end else if (!last_usb_dir && !USB_DIR && USB_NXT) begin
-				state <= PHY_HAS_ABORTED;
+				state <= READ_DATA;
 			end
 		end
 		REG_READ_END: begin
@@ -185,7 +185,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				end
 				usb_stupid_test <= 1'b1;
 			end else begin
-				state <= PHY_HAS_ABORTED; //MAY FAIL AND OMMIT RECEPTION OF RXCMD!
+				state <= READ_DATA; 
 			end
 		end
 		
@@ -193,7 +193,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			usb_data_o_get_next <= 0;
 
 			if (USB_DIR) begin
-				state <= PHY_HAS_ABORTED;
+				state <= READ_DATA;
 			end else if (USB_DATA_IN_START_END & USB_NXT) begin
 				state <= WRITE_DATA_END;
 			end else if (USB_NXT) begin
@@ -215,7 +215,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					usb_data_i_reg <= 0;
 					rxcmd <= USB_DATA_I;
 					if (USB_DATA_I & 8'b00100000)
-						state <= PHY_HAS_ABORTED;
+						state <= READ_DATA;
 				end else begin
 					usb_data_i_reg <= USB_DATA_I;
 					usb_data_i_set_next <= 1;		
@@ -225,11 +225,6 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		READ_DATA_END: begin
 			state <= IDLE;
 		end
-		PHY_HAS_ABORTED: begin
-			/* If the PHY aborts the RegWrite by asserting dir,
-			   the Link must retry the RegWrite (TXCMD) when the bus is idle. */
-			state <= IDLE;
-		end	
 		default: begin
 			state <= IDLE;
 		end
@@ -427,26 +422,6 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		USB_DATA_OUT_FAIL_a = 0;
 		USB_DATA_OUT_a = 0;
 	end
-	PHY_HAS_ABORTED: begin
-		ready_a = 1'b1;
-
-		USB_STP_a = 1'b0;
-		USB_DATA_O_a = 8'd0;
-
-		REG_DATA_O_a = 8'd0;
-		REG_DONE_a = 1'b0;
-		REG_FAIL_a = 1'b1;
-
-		RXCMD_a = rxcmd;
-
-		USB_DATA_IN_STRB_a = 0;
-		USB_DATA_IN_FAIL_a = 1;
-
-		USB_DATA_OUT_STRB_a = 0;
-		USB_DATA_OUT_END_a = 0;
-		USB_DATA_OUT_FAIL_a = 1;
-		USB_DATA_OUT_a = 0;
-	end
 	READ_DATA: begin
 		ready_a = 1'b1;
 	
@@ -455,16 +430,16 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		
 		REG_DATA_O_a = 8'd0;
 		REG_DONE_a = 1'b0;
-		REG_FAIL_a = 1'b0;
+		REG_FAIL_a = 1;
 		
 		RXCMD_a = rxcmd;
 
 		USB_DATA_IN_STRB_a = 0;
-		USB_DATA_IN_FAIL_a = 0;
+		USB_DATA_IN_FAIL_a = 1;
 
 		USB_DATA_OUT_STRB_a = usb_data_i_set_next;
 		USB_DATA_OUT_END_a = 0;
-		USB_DATA_OUT_FAIL_a = 0;
+		USB_DATA_OUT_FAIL_a = 1;
 		USB_DATA_OUT_a = usb_data_i_reg;			
 	end
 	READ_DATA_END: begin
