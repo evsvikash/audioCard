@@ -74,8 +74,8 @@ parameter W_FUN_CTRL_REG = `PARAM_SIZE'd2;
 //parameter R_FUN_CTRL_REG = `PARAM_SIZE'd3;
 parameter W_OTG_CTRL_REG = `PARAM_SIZE'd4;
 //parameter R_OTG_CTRL_REG = `PARAM_SIZE'd5;
-//parameter W_SCR_REG  = `PARAM_SIZE'd6;
-//parameter R_SCR_REG  = `PARAM_SIZE'd7;
+parameter W_SCR_REG  = `PARAM_SIZE'd6;
+parameter R_SCR_REG  = `PARAM_SIZE'd7;
 parameter WAIT_RD = `PARAM_SIZE'd8;
 parameter WAIT_WR = `PARAM_SIZE'd9;
 parameter IDLE = `PARAM_SIZE'd10;
@@ -96,7 +96,7 @@ parameter OTG_CTRL_REG  = `REG_MAP_SIZE'h0A;
 parameter SCRATCH_REG   = `REG_MAP_SIZE'h16;
 
 
-reg [`PARAM_SIZE - 1 : 0] state, next_state;
+reg [`PARAM_SIZE - 1 : 0] state, next_state, previous_state;
 reg [7 : 0] ulpi_reg_data_o, ulpi_rxcmd_o, fun_ctrl_reg_val;
 reg [1:0] cnt;
 reg [1:0] jk_trans;
@@ -110,6 +110,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 
 		state <= RESET;
 		next_state <= RESET;
+		previous_state <= RESET;
 
 		ulpi_reg_data_o <= 0;
 		ulpi_rxcmd_o <= 0;
@@ -140,14 +141,16 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			if (ulpi_ready_a) begin
 				state <= W_OTG_CTRL_REG;
 				next_state <= SET_ULPI_START;
+				previous_state <= W_OTG_CTRL_REG;
 				clk_10MHz_cnt <= 0;
 			end
 		end
 		SET_ULPI_START : begin
-			if (clk_10MHz_cnt == 65000) begin
+			if (clk_10MHz_cnt >= 65000) begin
 				fun_ctrl_reg_val <= 8'b01100101;
 				state <= W_FUN_CTRL_REG;
 				next_state <= DETECT_SE0;
+				previous_state <= SET_ULPI_START;
 			end
 		end	
 		DETECT_SE0: begin
@@ -161,6 +164,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			fun_ctrl_reg_val <= 8'b01010100;
 			state <= W_FUN_CTRL_REG;
 			next_state <= TXCMD_CHIRP_K_START;
+			previous_state <= SET_ULPI_CHIRP;
 		end
 		TXCMD_CHIRP_K_START: begin
 			clk_10MHz_cnt <= 0;
@@ -205,6 +209,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			fun_ctrl_reg_val <= 8'b01000000;
 			state <= W_FUN_CTRL_REG;
 			next_state <= IDLE;
+			previous_state <= SET_ULPI_HS_IDLE;
 		end
 		W_OTG_CTRL_REG: begin
 			state <= WAIT_WR; 
@@ -218,13 +223,18 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 /*		R_FUN_CTRL_REG: begin
 			state <= WAIT_RD;
 		end*/
-/*		W_SCR_REG: begin
+		W_SCR_REG: begin
 			state <= WAIT_WR;
 		end
 		R_SCR_REG: begin
 			state <= WAIT_RD;
-		end*/
+		end
 		IDLE: begin
+			if (clk_10MHz_cnt == 0) begin
+				state <= W_SCR_REG;
+			end else if (clk_10MHz_cnt == 100) begin
+				state <= R_SCR_REG;
+			end
 		end
 		FAIL: begin
 		end
@@ -233,17 +243,17 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			if (ulpi_reg_done_a) begin
 				state <= next_state;
 			end else if (ulpi_reg_fail_a) begin
-				state <= IDLE;
+				state <= previous_state;
 			end
 		end
-		/*WAIT_RD: begin
+		WAIT_RD: begin
 			if (ulpi_reg_done_a) begin
 				state <= IDLE;
 				ulpi_reg_data_o <= ulpi_reg_data_o_a;
 			end else if (ulpi_reg_fail_a) begin
 				state <= IDLE;
 			end
-		end*/
+		end
 		default: begin
 			state <= RESET;
 		end
@@ -358,7 +368,7 @@ always @(state, fun_ctrl_reg_val) begin
  		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
 	end */
-/*	W_SCR_REG: begin
+	W_SCR_REG: begin
 		ulpi_reg_addr_a = SCRATCH_REG;
 		ulpi_reg_data_i_a = 8'b01010101;
 		ulpi_reg_rw_a = 1'b1;
@@ -375,7 +385,7 @@ always @(state, fun_ctrl_reg_val) begin
 
 		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
-	end*/
+	end
 	WAIT_WR: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
@@ -403,7 +413,7 @@ always @(state, fun_ctrl_reg_val) begin
 		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
 	end
-	/*WAIT_RD: begin
+	WAIT_RD: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
 		ulpi_reg_rw_a = 1'b0;
@@ -411,7 +421,7 @@ always @(state, fun_ctrl_reg_val) begin
 
 		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
-	end*/
+	end
 	SET_ULPI_HS_IDLE: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
@@ -442,6 +452,6 @@ always @(state, fun_ctrl_reg_val) begin
 	endcase
 end
 
-assign LED = ~state;
+assign LED = ~ulpi_reg_data_o;
 
 endmodule
