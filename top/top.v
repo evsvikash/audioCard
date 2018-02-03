@@ -101,10 +101,35 @@ reg [7 : 0] ulpi_reg_data_o, ulpi_rxcmd_o, fun_ctrl_reg_val;
 reg [1:0] cnt;
 reg [1:0] jk_trans;
 
-reg clk_10MHz;
+reg clk_10MHz, nrst_clk_10MHz_cnt;
 reg [15:0] clk_10MHz_cnt;
 
 //k-state - send 0; j-state - send 1 only
+
+// This a high-tech clock generator
+// create 10[MHz] clock == 0.1[us]
+always @(posedge CLK_60M, negedge NRST_A_USB) begin
+	if (!NRST_A_USB) begin
+		cnt <= 0;
+		clk_10MHz <= 0;
+	end else begin
+		cnt <= cnt + 1;
+		if (cnt == 2) begin
+			cnt <= 0;
+			clk_10MHz <= !clk_10MHz;
+		end		
+	end
+end
+
+// This is high-tech counter
+always @(posedge clk_10MHz, negedge nrst_clk_10MHz_cnt) begin
+	if (!nrst_clk_10MHz_cnt) begin
+		clk_10MHz_cnt <= 0;
+	end else begin
+		clk_10MHz_cnt <= clk_10MHz_cnt + 1;
+	end
+end
+
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
 
@@ -116,25 +141,13 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		ulpi_rxcmd_o <= 0;
 		fun_ctrl_reg_val <= 0;
 
-		cnt <= 0;
-		clk_10MHz <= 0;
-		clk_10MHz_cnt <= 0;
 		jk_trans <= 0;
+
+		nrst_clk_10MHz_cnt <= 0;
 	end else begin
 
+		nrst_clk_10MHz_cnt <= 1;
 		ulpi_rxcmd_o <= ulpi_rxcmd_a;
-
-// create 10[MHz] clock == 0.1[us]
-//-----------------------------------------------------------------------------	
-		cnt <= cnt + 1;
-		if (cnt == 3) begin
-			cnt <= 1;
-			clk_10MHz <= !clk_10MHz;
-			if (!clk_10MHz)
-				clk_10MHz_cnt <= clk_10MHz_cnt + 1;
-		end		
-//-----------------------------------------------------------------------------	
-
 	
 		case (state)
 		RESET: begin
@@ -142,7 +155,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				state <= W_OTG_CTRL_REG;
 				next_state <= SET_ULPI_START;
 				previous_state <= W_OTG_CTRL_REG;
-				clk_10MHz_cnt <= 0;
+				nrst_clk_10MHz_cnt <= 0;
 			end
 		end
 		SET_ULPI_START : begin
@@ -155,7 +168,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		end	
 		DETECT_SE0: begin
 			if (ulpi_rxcmd_o[1:0] != 2'b00 || !ulpi_ready_a) begin
-				clk_10MHz_cnt <= 0; 
+				nrst_clk_10MHz_cnt <= 0; 
 			end else if (clk_10MHz_cnt > 25) begin
 				state <= SET_ULPI_CHIRP;
 			end
@@ -167,7 +180,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			previous_state <= SET_ULPI_CHIRP;
 		end
 		TXCMD_CHIRP_K_START: begin
-			clk_10MHz_cnt <= 0;
+			nrst_clk_10MHz_cnt <= 0;
 			state <= TXCMD_CHIRP_K;
 		end	
 		TXCMD_CHIRP_K: begin
@@ -177,17 +190,17 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				state <= FAIL;
 		end
 		TXCMD_CHIRP_K_END: begin
-			clk_10MHz_cnt <= 0;
+			nrst_clk_10MHz_cnt <= 0;
 			state <= DETECT_K; //now we will be detecting K-J-K-J-L-J sequence
 		end
 		DETECT_K: begin
 			if (ulpi_rxcmd_o[1:0] == 2'b10) begin
 				if (clk_10MHz_cnt > 30) begin
-					clk_10MHz_cnt <= 0;
+					nrst_clk_10MHz_cnt <= 0;
 					state <= DETECT_J;
 				end
 			end else begin
-				clk_10MHz_cnt <= 0;
+				nrst_clk_10MHz_cnt <= 0;
 			end
 		end
 		DETECT_J: begin
@@ -196,13 +209,13 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					if (jk_trans == 2) begin
 						state <= SET_ULPI_HS_IDLE;		
 					end else begin
-						clk_10MHz_cnt <= 0;
+						nrst_clk_10MHz_cnt <= 0;
 						state <= DETECT_K;
 						jk_trans <= jk_trans + 1;
 					end
 				end
 			end else begin
-				clk_10MHz_cnt <= 0;
+				nrst_clk_10MHz_cnt <= 0;
 			end
 		end
 		SET_ULPI_HS_IDLE: begin
@@ -223,37 +236,37 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 /*		R_FUN_CTRL_REG: begin
 			state <= WAIT_RD;
 		end*/
-		W_SCR_REG: begin
-			state <= WAIT_WR;
-		end
-		R_SCR_REG: begin
+/*		W_SCR_REG: begin
+			state <= IDLE;
+		end*/
+/*		R_SCR_REG: begin
 			state <= WAIT_RD;
-		end
+		end*/
 		IDLE: begin
-			if (clk_10MHz_cnt == 0) begin
-				state <= W_SCR_REG;
-			end else if (clk_10MHz_cnt == 100) begin
-				state <= R_SCR_REG;
-			end
+//			if (clk_10MHz_cnt == 100) begin
+//				state <= W_SCR_REG;
+	//		end else if (clk_10MHz_cnt == 100) begin
+	//			state <= R_SCR_REG;
+//			end
 		end
 		FAIL: begin
 		end
 		WAIT_WR: begin
-			clk_10MHz_cnt <= 0; //not the best place
+			nrst_clk_10MHz_cnt <= 0; //not the best place
 			if (ulpi_reg_done_a) begin
 				state <= next_state;
 			end else if (ulpi_reg_fail_a) begin
 				state <= previous_state;
 			end
 		end
-		WAIT_RD: begin
+	/*	WAIT_RD: begin
 			if (ulpi_reg_done_a) begin
 				state <= IDLE;
 				ulpi_reg_data_o <= ulpi_reg_data_o_a;
 			end else if (ulpi_reg_fail_a) begin
 				state <= IDLE;
 			end
-		end
+		end*/
 		default: begin
 			state <= RESET;
 		end
@@ -368,16 +381,18 @@ always @(state, fun_ctrl_reg_val) begin
  		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
 	end */
-	W_SCR_REG: begin
+	/*W_SCR_REG: begin
 		ulpi_reg_addr_a = SCRATCH_REG;
 		ulpi_reg_data_i_a = 8'b01010101;
-		ulpi_reg_rw_a = 1'b1;
-		ulpi_reg_en_a = 1'b1;
+	//	ulpi_reg_rw_a = 1'b1;
+	//	ulpi_reg_en_a = 1'b1;
+		ulpi_reg_rw_a = 0;
+		ulpi_reg_en_a = 0;
 
 		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
-	end
-	R_SCR_REG: begin
+	end*/
+	/*R_SCR_REG: begin
 		ulpi_reg_addr_a = SCRATCH_REG;
 		ulpi_reg_data_i_a = 8'd0;
 		ulpi_reg_rw_a = 1'b0;
@@ -385,7 +400,7 @@ always @(state, fun_ctrl_reg_val) begin
 
 		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
-	end
+	end*/
 	WAIT_WR: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
@@ -413,7 +428,7 @@ always @(state, fun_ctrl_reg_val) begin
 		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
 	end
-	WAIT_RD: begin
+/*	WAIT_RD: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
 		ulpi_reg_rw_a = 1'b0;
@@ -421,7 +436,7 @@ always @(state, fun_ctrl_reg_val) begin
 
 		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
-	end
+	end*/
 	SET_ULPI_HS_IDLE: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
@@ -452,6 +467,6 @@ always @(state, fun_ctrl_reg_val) begin
 	endcase
 end
 
-assign LED = ~ulpi_reg_data_o;
+assign LED = {~state[3:0], clk_10MHz_cnt[3:0]};
 
 endmodule
