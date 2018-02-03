@@ -169,7 +169,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		DETECT_SE0: begin
 			if (ulpi_rxcmd_o[1:0] != 2'b00 || !ulpi_ready_a) begin
 				nrst_clk_10MHz_cnt <= 0; 
-			end else if (clk_10MHz_cnt > 25) begin
+			end else if (clk_10MHz_cnt >= 25) begin
 				state <= SET_ULPI_CHIRP;
 			end
 		end
@@ -243,11 +243,6 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			state <= WAIT_RD;
 		end*/
 		IDLE: begin
-//			if (clk_10MHz_cnt == 100) begin
-//				state <= W_SCR_REG;
-	//		end else if (clk_10MHz_cnt == 100) begin
-	//			state <= R_SCR_REG;
-//			end
 		end
 		FAIL: begin
 		end
@@ -384,8 +379,6 @@ always @(state, fun_ctrl_reg_val) begin
 	/*W_SCR_REG: begin
 		ulpi_reg_addr_a = SCRATCH_REG;
 		ulpi_reg_data_i_a = 8'b01010101;
-	//	ulpi_reg_rw_a = 1'b1;
-	//	ulpi_reg_en_a = 1'b1;
 		ulpi_reg_rw_a = 0;
 		ulpi_reg_en_a = 0;
 
@@ -467,6 +460,6 @@ always @(state, fun_ctrl_reg_val) begin
 	endcase
 end
 
-assign LED = {~state[3:0], clk_10MHz_cnt[3:0]};
+assign LED = clk_10MHz_cnt[7:0];
 
 endmodule
