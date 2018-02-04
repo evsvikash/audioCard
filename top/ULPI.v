@@ -194,7 +194,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					state <= REG_READ_DATA;
 				end
 			end else begin
-				state <= REG_READ_END;
+				state <= READ_DATA;
 			end
 		end
 		REG_READ_DATA: begin

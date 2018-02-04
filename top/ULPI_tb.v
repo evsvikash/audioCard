@@ -109,6 +109,7 @@ always begin
 	#20;
 
 	//test reg write
+	//TODO FUN_CTRL_REG with RESET
 	repeat(10) begin
 		data <= data + 1;
 		#20;
@@ -247,13 +248,96 @@ always begin
 		#20;
 		USB_DIR <= 1;
 		if (REG_FAIL == 1) $finish;
-		if (USB_STP != 1) $finish;
+//		if (REG_DONE == 1) $finish; //TODO...
+		if (USB_STP != 1) $finish; 
 		#20;
 		if (REG_FAIL != 1) $finish;
 		USB_DIR <= 0;
 		#20;
 	end
 
+	//reg read with no fail
+	repeat(10) begin
+		data <= data + 1;
+		#20;
+
+		REG_RW <= 0;
+		REG_EN <= 1;
+		REG_ADDR <= data[5:0];
+		#20;
+		
+		REG_EN <= 0;
+		REG_ADDR <= 0;
+		#20;
+
+		// we are in REG_READ;
+		if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+		if (REG_FAIL == 1) $finish;
+		#20;	
+	
+		if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+		if (REG_FAIL == 1) $finish;
+		USB_NXT <= 1;
+		#20;
+		USB_DIR <= 1;
+		USB_NXT <= 0;
+		USB_DATA_TO_ULPI <= data;
+		if (REG_FAIL == 1) $finish;
+		#20;
+		USB_DIR <= 1;
+		if (REG_FAIL == 1) $finish;
+		#20;
+		USB_DIR <= 0;
+		if (REG_FAIL == 1) $finish;
+		if (REG_DATA_O != data) $finish;
+		#20;
+	end
+	
+	// reg read fail check
+	repeat(10) begin
+		data <= data + 1;
+		#20;
+
+		REG_RW <= 0;
+		REG_EN <= 1;
+		REG_ADDR <= data[5:0];
+		#20;
+
+		REG_EN <= 0;
+		REG_ADDR <= 0;
+		#20;
+	
+		if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+		if (REG_FAIL == 1) $finish;
+		USB_DIR <= 1;
+		#20;
+
+		if (REG_FAIL != 1) $finish;
+		USB_DIR <= 0;
+		#20;
+
+		REG_RW <= 0;
+		REG_EN <= 1;
+		REG_ADDR <= data[5:0];
+		#20;
+
+		REG_EN <= 0;
+		REG_ADDR <= 0;
+		#20;
+	
+		if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+		if (REG_FAIL == 1) $finish;		
+		#20;
+
+		if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+		if (REG_FAIL == 1) $finish;
+		USB_DIR <= 1;
+		#20;
+
+		if (REG_FAIL != 1) $finish;
+		USB_DIR <= 0;
+		#20;	
+	end
 	// end of simulation
 	#300;	
 	$finish;
