@@ -460,6 +460,6 @@ always @(state, fun_ctrl_reg_val) begin
 	endcase
 end
 
-assign LED = clk_10MHz_cnt[7:0];
+assign LED = ulpi_state;
 
 endmodule

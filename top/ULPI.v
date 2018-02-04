@@ -50,9 +50,9 @@ parameter IDLE	      	= `PARAM_SIZE'd1;
 parameter REG_WRITE  	= `PARAM_SIZE'd2;
 parameter REG_WRITE_DATA = `PARAM_SIZE'd3;
 parameter REG_WRITE_END = `PARAM_SIZE'd4;
-//parameter REG_READ      = `PARAM_SIZE'd5;
-//parameter REG_READ_DATA = `PARAM_SIZE'd6;
-//parameter REG_READ_END = `PARAM_SIZE'd7;
+parameter REG_READ      = `PARAM_SIZE'd5;
+parameter REG_READ_DATA = `PARAM_SIZE'd6;
+parameter REG_READ_END = `PARAM_SIZE'd7;
 parameter POST_RESET    = `PARAM_SIZE'd9;
 parameter READ_DATA = `PARAM_SIZE'd10;
 parameter READ_DATA_END = `PARAM_SIZE'd11;
@@ -147,20 +147,20 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			 	state <= WRITE_DATA_PID;
 			end else if (reg_en) begin
 				reg_en <= 0;
-//				case (reg_rw)
-//				1'b0: begin
-//					state <= REG_READ;
-//				end
-//				1'b1: begin
+				case (reg_rw)
+				1'b0: begin
+					state <= REG_READ;
+				end
+				1'b1: begin
 					state <= REG_WRITE;
 					next_state <= IDLE;
 
 					if (reg_addr == 8'h04 && (reg_val & 8'b00100000))
 						next_state <= UTMI_RESET;
-//				end
-//				default: begin
-//				end
-//				endcase
+				end
+				default: begin
+				end
+				endcase
 			end
 		end
 		REG_WRITE: begin
@@ -168,14 +168,14 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				if (USB_NXT & usb_stupid_test) begin
 					state <= REG_WRITE_DATA;
 				end 
-				usb_stupid_test <= 1'b1;
+				usb_stupid_test <= 1'b1; //should it really be here?
 			end else begin
 				state <= READ_DATA;
 			end
 		end
 		REG_WRITE_DATA: begin
 			if (!last_usb_dir & !USB_DIR) begin
-				if (!USB_NXT) begin
+				if (!USB_NXT) begin //should it really be here?
 					state <= REG_WRITE_END;
 				end
 			end else begin
@@ -183,15 +183,18 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		REG_WRITE_END: begin
-			state <= next_state;
+			if (!USB_DIR)
+				state <= next_state;
+			else
+				state <= READ_DATA;
 		end
-/*		REG_READ: begin
+		REG_READ: begin
 			if (!last_usb_dir & !USB_DIR) begin
 				if (USB_NXT) begin
 					state <= REG_READ_DATA;
 				end
 			end else begin
-				state <= TODO
+				state <= REG_READ_END;
 			end
 		end
 		REG_READ_DATA: begin
@@ -199,12 +202,12 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				reg_val <= USB_DATA_I;
 				state <= REG_READ_END;
 			end else if (!last_usb_dir && !USB_DIR && USB_NXT) begin
-				state <= TODO
+				state <= REG_READ_END;
 			end
 		end
 		REG_READ_END: begin
 			state <= IDLE;
-		end*/
+		end
 		WRITE_DATA_PID: begin
 			usb_data_o_get_next <= 0;
 
@@ -378,7 +381,7 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		USB_DATA_OUT_FAIL_a = 0;
 		USB_DATA_OUT_a = 0;
 	end
-/*	REG_READ: begin //send TXCMD
+	REG_READ: begin //send TXCMD
 		ready_a = 1'b1;
 
 		USB_STP_a = 1'b0;
@@ -437,7 +440,7 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		USB_DATA_OUT_END_a = 0;
 		USB_DATA_OUT_FAIL_a = 0;
 		USB_DATA_OUT_a = 0;
-	end*/
+	end
 	IDLE: begin
 		ready_a = 1'b1;
 
@@ -458,26 +461,6 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		USB_DATA_OUT_FAIL_a = 0;
 		USB_DATA_OUT_a = 0;
 	end
-/*	FAIL: begin
-		ready_a = 1'b1;
-	
-		USB_STP_a = 1'b0;
-		USB_DATA_O_a = 8'd0;
-		
-		REG_DATA_O_a = 8'd0;
-		REG_DONE_a = 1'b0;
-		REG_FAIL_a = 1;
-		
-		RXCMD_a = rxcmd;
-
-		USB_DATA_IN_STRB_a = 0;
-		USB_DATA_IN_FAIL_a = 1;
-
-		USB_DATA_OUT_STRB_a = 0;
-		USB_DATA_OUT_END_a = 0;
-		USB_DATA_OUT_FAIL_a = 0;
-		USB_DATA_OUT_a = 0;
-	end*/
 	READ_DATA: begin
 		ready_a = 1'b1;
 	
