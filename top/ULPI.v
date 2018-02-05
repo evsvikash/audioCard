@@ -121,6 +121,8 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			usb_data_o_reg <= USB_DATA_IN;
 			usb_data_o_get_next <= 1;
 			usb_data_o_start <= 1;	
+		end else if (usb_data_o_get_next == 1) begin
+			usb_data_o_get_next <= 0;
 		end
 		// end of RO/USBWHT"SCH"SYS -----------------------------------
 
@@ -139,7 +141,6 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		end
 		IDLE: begin
 			usb_stupid_test <= 1'b0;
-			usb_data_o_get_next <= 0;
 
 			if (USB_DIR) begin
 				state <= READ_DATA;
@@ -216,8 +217,9 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					usb_data_o_reg <= USB_DATA_IN;
 					usb_data_o_get_next <= 1;
 					state <= WRITE_DATA;
+				end else if (USB_NXT) begin
+					usb_stupid_test <= 1'b1; //TOTHINK
 				end
-				usb_stupid_test <= 1'b1;
 			end else begin
 				state <= READ_DATA; 
 			end
@@ -453,7 +455,7 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 
 		RXCMD_a = rxcmd;
 
-		USB_DATA_IN_STRB_a = 0;
+		USB_DATA_IN_STRB_a = usb_data_o_get_next;
 		USB_DATA_IN_FAIL_a = 0;
 
 		USB_DATA_OUT_STRB_a = 0;

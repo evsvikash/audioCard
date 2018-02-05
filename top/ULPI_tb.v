@@ -338,6 +338,88 @@ always begin
 		USB_DIR <= 0;
 		#20;	
 	end
+
+	// USB write
+	repeat(10) begin
+		data <= data + 1;
+		#20;
+
+		USB_DATA_IN <= data;
+		USB_DATA_IN_START_END <= 1;
+		#20;
+
+		USB_DATA_IN_START_END <= 0;
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB != 1) $finish;
+		#20;
+
+		if (USB_DATA_FROM_ULPI != {2'b01, data[5:0]}) $finish;
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		USB_NXT <= 0;	
+		#20;
+
+		if (USB_DATA_FROM_ULPI != {2'b01, data[5:0]}) $finish;
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		USB_NXT <= 1;	
+		#20;
+
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		if (USB_DATA_FROM_ULPI != {2'b01, data[5:0]}) $finish;
+		data <= data + 1;
+		USB_DATA_IN <= data + 1;
+		USB_NXT <= 1;
+		#20;	
+
+		repeat(5) begin	
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_IN_STRB != 1) $finish;
+			if (USB_DATA_FROM_ULPI != data) $finish;
+			USB_NXT <= 1;
+			USB_DATA_IN <= data + 1;
+			data <= data + 1;			
+			#20;
+
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_IN_STRB != 1) $finish;
+			if (USB_DATA_FROM_ULPI != data) $finish;
+			USB_NXT <= 0;
+			USB_DATA_IN <= data + 1;
+			#20;
+
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_IN_STRB == 1) $finish;
+			if (USB_DATA_FROM_ULPI != data) $finish;
+			data <= data + 1;
+			USB_NXT <= 1;
+			#20;
+		end
+
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB != 1) $finish;
+		if (USB_DATA_FROM_ULPI != data) $finish;
+		USB_NXT <= 0;
+		USB_DATA_IN <= data + 1;
+		#20;
+	
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		if (USB_DATA_FROM_ULPI != data) $finish;
+		USB_NXT <= 1;
+		USB_DATA_IN_START_END <= 1;
+		#20;		
+
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		if (USB_STP != 1) $finish;
+		if (USB_DATA_FROM_ULPI == data) $finish; //TODO what should be here?
+		USB_DATA_IN_START_END <= 0;
+		USB_NXT <= 0;
+		#20;
+			
+	end
 	// end of simulation
 	#300;	
 	$finish;
