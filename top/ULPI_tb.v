@@ -417,9 +417,52 @@ always begin
 		if (USB_DATA_FROM_ULPI == data) $finish; //TODO what should be here?
 		USB_DATA_IN_START_END <= 0;
 		USB_NXT <= 0;
-		#20;
-			
+		#20;		
 	end
+	//TODO USB write with fail	
+	data <= 0;
+	#20;
+
+	repeat(10) begin
+		data <= data + 1;
+		#20;
+	
+		USB_DIR <= 1;
+		USB_DATA_TO_ULPI <= data;
+		#20;
+	
+		#20;	
+	
+		if (RXCMD != data) $finish;
+		if (USB_DATA_OUT_STRB != 0) $finish;
+		if (USB_DATA_OUT_END != 0) $finish;
+		if (USB_DATA_OUT_FAIL != 0) $finish;
+		data <= data + 1;
+		USB_DATA_TO_ULPI <= data + 1;
+		USB_NXT <= 1;
+		#20;
+
+		repeat(5) begin
+			if (USB_DATA_OUT != data) $finish;
+			if (USB_DATA_OUT_STRB != 1) $finish;
+			if (USB_DATA_OUT_END != 0) $finish;
+			if (USB_DATA_OUT_FAIL != 0) $finish;
+			data <= data + 1;
+			USB_DATA_TO_ULPI <= data + 1;
+			#20;
+		end
+			
+		USB_DIR <= 0;
+		USB_NXT <= 0;
+		#20;
+
+		if (USB_DATA_OUT_STRB != 0) $finish;
+		if (USB_DATA_OUT_END != 1) $finish;
+		if (USB_DATA_OUT_FAIL != 0) $finish;
+		data <= 0;
+		#20;	
+	end
+		
 	// end of simulation
 	#300;	
 	$finish;
