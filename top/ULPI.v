@@ -222,6 +222,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				end
 			end else begin
 				state <= READ_DATA; 
+				usb_data_o_start <= 0;
 			end
 		end	
 		WRITE_DATA: begin

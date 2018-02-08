@@ -419,8 +419,30 @@ always begin
 		USB_DATA_IN_START_END <= 0;
 		USB_NXT <= 0;
 		#20;		
+
+		//Fail USB write
+		repeat(2) begin
+			data <= data + 1;
+			#20;
+
+			USB_DATA_IN <= data;
+			USB_DATA_IN_START_END <= 1;
+			#20;
+
+			USB_DATA_IN_START_END <= 0;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_IN_STRB != 1) $finish;
+			USB_DIR <= 1;
+			#20;
+
+			if (USB_DATA_IN_FAIL != 1) $finish;
+			if (USB_DATA_IN_STRB == 1) $finish;
+			USB_DIR <= 0;
+			#40;
+		end	
+
 	end
-	//TODO USB write with fail	
+	
 	data <= 0;
 	#20;
 
