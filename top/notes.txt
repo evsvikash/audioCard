@@ -6,3 +6,6 @@
 	- you can not write is very early!
 
 
+What should I call to get gate-level sim:
+vsim work.ULPI_tb -L fiftyfivenm_ver
+

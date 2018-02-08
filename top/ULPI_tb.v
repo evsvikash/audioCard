@@ -1,3 +1,4 @@
+`timescale 1 ps / 1 ps
 module ULPI_tb(output clk);
 
 reg CLK, NRST, USB_DIR, USB_NXT, REG_RW, REG_EN, USB_DATA_IN_START_END;
