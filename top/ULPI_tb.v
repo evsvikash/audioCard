@@ -142,120 +142,121 @@ always begin
 		if (REG_FAIL == 1) $finish;
 		#20;
 		// we are in idle
+
+
+		//test reg write with fail
+		//there are 4 moments, when fail may occure. Therefore this section is so long.
+		repeat(2) begin
+			data <= data + 1;
+			#20;
+			REG_RW <= 1;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			REG_DATA_I <= data;
+			#20;
+			REG_RW <= 0;
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			REG_DATA_I <= 0;
+			#20;
+			if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_DIR <= 1; //going into fail
+			#20;
+			if (REG_FAIL != 1) $finish;
+			USB_DIR <= 0;
+			#20;
+	
+			//we are in idle
+			REG_RW <= 1;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			REG_DATA_I <= data;
+			#20;
+			REG_RW <= 0;
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			REG_DATA_I <= 0;
+			#20;
+			// we are in REG_WRITE;
+			if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_NXT <= 1;
+			#20;
+			if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_DIR <= 1;
+			USB_NXT <= 0; //TODO here something, how USB_NXT behaves when USB_DIR == 1?
+			#20;
+			if (REG_FAIL != 1) $finish;
+			USB_DIR <= 0;
+			#20;
+	
+			//we are in idle
+			REG_RW <= 1;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			REG_DATA_I <= data;
+			#20;
+			REG_RW <= 0;
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			REG_DATA_I <= 0;
+			#20;
+			// we are in REG_WRITE;
+			if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_NXT <= 1;
+			#20;
+			if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			#20;
+			if (USB_DATA_FROM_ULPI != data) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_DIR <= 1;
+			USB_NXT <= 0;
+			#20;
+			if (REG_FAIL != 1) $finish;
+			if (USB_STP == 1) $finish;
+			USB_DIR <= 0;
+			#20;
+	
+			//we are in idle
+			REG_RW <= 1;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			REG_DATA_I <= data;
+			#20;
+			REG_RW <= 0;
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			REG_DATA_I <= 0;
+			#20;
+			// we are in REG_WRITE;
+			if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_NXT <= 1;
+			#20;
+			if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			#20;
+			if (USB_DATA_FROM_ULPI != data) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_NXT <= 0;
+			#20;
+			USB_DIR <= 1;
+			if (REG_FAIL == 1) $finish;
+	//		if (REG_DONE == 1) $finish; //TODO...
+			if (USB_STP != 1) $finish; 
+			#20;
+			if (REG_FAIL != 1) $finish;
+			USB_DIR <= 0;
+			#20;
+		end
 	end	
 	
 	data <= 6;
 	#20;
-
-	//test reg write with fail
-	//there are 4 moments, when fail may occure. Therefore this section is so long.
-	repeat(10) begin
-		data <= data + 1;
-		#20;
-		REG_RW <= 1;
-		REG_EN <= 1;
-		REG_ADDR <= data[5:0];
-		REG_DATA_I <= data;
-		#20;
-		REG_RW <= 0;
-		REG_EN <= 0;
-		REG_ADDR <= 0;
-		REG_DATA_I <= 0;
-		#20;
-		if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_DIR <= 1; //going into fail
-		#20;
-		if (REG_FAIL != 1) $finish;
-		USB_DIR <= 0;
-		#20;
-
-		//we are in idle
-		REG_RW <= 1;
-		REG_EN <= 1;
-		REG_ADDR <= data[5:0];
-		REG_DATA_I <= data;
-		#20;
-		REG_RW <= 0;
-		REG_EN <= 0;
-		REG_ADDR <= 0;
-		REG_DATA_I <= 0;
-		#20;
-		// we are in REG_WRITE;
-		if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_NXT <= 1;
-		#20;
-		if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_DIR <= 1;
-		USB_NXT <= 0; //TODO here something, how USB_NXT behaves when USB_DIR == 1?
-		#20;
-		if (REG_FAIL != 1) $finish;
-		USB_DIR <= 0;
-		#20;
-
-		//we are in idle
-		REG_RW <= 1;
-		REG_EN <= 1;
-		REG_ADDR <= data[5:0];
-		REG_DATA_I <= data;
-		#20;
-		REG_RW <= 0;
-		REG_EN <= 0;
-		REG_ADDR <= 0;
-		REG_DATA_I <= 0;
-		#20;
-		// we are in REG_WRITE;
-		if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_NXT <= 1;
-		#20;
-		if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		#20;
-		if (USB_DATA_FROM_ULPI != data) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_DIR <= 1;
-		USB_NXT <= 0;
-		#20;
-		if (REG_FAIL != 1) $finish;
-		if (USB_STP == 1) $finish;
-		USB_DIR <= 0;
-		#20;
-
-		//we are in idle
-		REG_RW <= 1;
-		REG_EN <= 1;
-		REG_ADDR <= data[5:0];
-		REG_DATA_I <= data;
-		#20;
-		REG_RW <= 0;
-		REG_EN <= 0;
-		REG_ADDR <= 0;
-		REG_DATA_I <= 0;
-		#20;
-		// we are in REG_WRITE;
-		if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_NXT <= 1;
-		#20;
-		if (USB_DATA_FROM_ULPI != {2'b10, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		#20;
-		if (USB_DATA_FROM_ULPI != data) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_NXT <= 0;
-		#20;
-		USB_DIR <= 1;
-		if (REG_FAIL == 1) $finish;
-//		if (REG_DONE == 1) $finish; //TODO...
-		if (USB_STP != 1) $finish; 
-		#20;
-		if (REG_FAIL != 1) $finish;
-		USB_DIR <= 0;
-		#20;
-	end
 
 	//reg read with no fail
 	repeat(10) begin
@@ -292,54 +293,55 @@ always begin
 		if (REG_FAIL == 1) $finish;
 		if (REG_DATA_O != data) $finish;
 		#20;
+
+		// reg read fail check
+		repeat(10) begin
+			data <= data + 1;
+			#20;
+	
+			REG_RW <= 0;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			#20;
+	
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			#20;
+		
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_DIR <= 1;
+			#20;
+	
+			if (REG_FAIL != 1) $finish;
+			USB_DIR <= 0;
+			#20;
+	
+			REG_RW <= 0;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			#20;
+	
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			#20;
+		
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;		
+			#20;
+	
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_DIR <= 1;
+			#20;
+	
+			if (REG_FAIL != 1) $finish;
+			USB_DIR <= 0;
+			#20;	
+		end
+
 	end
 	
-	// reg read fail check
-	repeat(10) begin
-		data <= data + 1;
-		#20;
-
-		REG_RW <= 0;
-		REG_EN <= 1;
-		REG_ADDR <= data[5:0];
-		#20;
-
-		REG_EN <= 0;
-		REG_ADDR <= 0;
-		#20;
-	
-		if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_DIR <= 1;
-		#20;
-
-		if (REG_FAIL != 1) $finish;
-		USB_DIR <= 0;
-		#20;
-
-		REG_RW <= 0;
-		REG_EN <= 1;
-		REG_ADDR <= data[5:0];
-		#20;
-
-		REG_EN <= 0;
-		REG_ADDR <= 0;
-		#20;
-	
-		if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;		
-		#20;
-
-		if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
-		if (REG_FAIL == 1) $finish;
-		USB_DIR <= 1;
-		#20;
-
-		if (REG_FAIL != 1) $finish;
-		USB_DIR <= 0;
-		#20;	
-	end
-
 	// USB write
 	repeat(10) begin
 		data <= data + 1;
@@ -432,6 +434,10 @@ always begin
 			USB_DATA_IN_START_END <= 0;
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_IN_STRB != 1) $finish;
+			#20;
+			
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_IN_STRB == 1) $finish;
 			USB_DIR <= 1;
 			#20;
 

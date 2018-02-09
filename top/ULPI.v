@@ -74,6 +74,7 @@ reg reg_en, reg_rw;
 reg usb_data_o_start;
 
 reg last_usb_dir, last_usb_nxt, usb_data_o_get_next, usb_data_i_set_next;
+reg usb_data_o_failed, reg_op_failed;
 
 wire [7:0] USB_DATA_I, USB_DATA_O;
 
@@ -103,6 +104,10 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		usb_data_o_get_next <= 0;
 		usb_data_i_set_next <= 0;
 		usb_data_o_start <= 0;
+
+		usb_data_o_failed <= 0;
+		reg_op_failed <= 0;
+
 	end else begin
 		last_usb_dir <= USB_DIR;
 		last_usb_nxt <= USB_NXT;	
@@ -172,6 +177,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				usb_stupid_test <= 1'b1; //should it really be here?
 			end else begin
 				state <= READ_DATA;
+				reg_op_failed <= 1;
 			end
 		end
 		REG_WRITE_DATA: begin
@@ -181,13 +187,16 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				end
 			end else begin
 				state <= READ_DATA;
+				reg_op_failed <= 1;
 			end
 		end
 		REG_WRITE_END: begin
-			if (!USB_DIR)
+			if (!USB_DIR) begin
 				state <= next_state;
-			else
+			end else begin
 				state <= READ_DATA;
+				reg_op_failed <= 1;
+			end
 		end
 		REG_READ: begin
 			if (!last_usb_dir & !USB_DIR) begin
@@ -196,6 +205,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				end
 			end else begin
 				state <= READ_DATA;
+				reg_op_failed <= 1;
 			end
 		end
 		REG_READ_DATA: begin
@@ -223,6 +233,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end else begin
 				state <= READ_DATA; 
 				usb_data_o_start <= 0;
+				usb_data_o_failed <= 1;
 			end
 		end	
 		WRITE_DATA: begin
@@ -231,6 +242,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			if (USB_DIR) begin //FAIL
 				state <= READ_DATA;
 				usb_data_o_start <= 0;
+				usb_data_o_failed <= 1;
 			end else if (USB_DATA_IN_START_END) begin //TODO
 				state <= WRITE_DATA_END;
 				usb_data_o_start <= 0;
@@ -246,6 +258,9 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		end
 		READ_DATA: begin
 			usb_data_i_set_next <= 0;
+	
+			usb_data_o_failed <= 0;
+			reg_op_failed <= 0;
 	
 			if (!USB_DIR) begin
 				state <= READ_DATA_END;
@@ -472,12 +487,12 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		
 		REG_DATA_O_a = 8'd0;
 		REG_DONE_a = 1'b0;
-		REG_FAIL_a = 1;
+		REG_FAIL_a = reg_op_failed;
 		
 		RXCMD_a = rxcmd;
 
 		USB_DATA_IN_STRB_a = 0;
-		USB_DATA_IN_FAIL_a = 1;
+		USB_DATA_IN_FAIL_a = usb_data_o_failed;
 
 		USB_DATA_OUT_STRB_a = usb_data_i_set_next;
 		USB_DATA_OUT_END_a = 0;
