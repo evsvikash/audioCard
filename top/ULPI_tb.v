@@ -433,8 +433,10 @@ always begin
 		// reg read fail check
 		repeat(10) begin
 			data <= data + 1;
+			data_fail <= 1;
 			#20;
-	
+
+			// figure 23	
 			REG_RW <= 0;
 			REG_EN <= 1;
 			REG_ADDR <= data[5:0];
@@ -454,9 +456,15 @@ always begin
 			if (REG_FAIL != 1) $finish;
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_DATA_TO_ULPI <= data_fail;
+			#20;
+			
+			if (RXCMD != data_fail) $finish;
+			data_fail <= 2;
 			USB_DIR <= 0;
 			#20;
 	
+			// figure 23
 			REG_RW <= 0;
 			REG_EN <= 1;
 			REG_ADDR <= data[5:0];
@@ -482,10 +490,148 @@ always begin
 			if (REG_FAIL != 1) $finish;
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_OUT_FAIL == 1) $finish;
-			USB_DIR <= 0;
+			USB_DATA_TO_ULPI <= data_fail;
 			#20;	
+
+			if (RXCMD != data_fail) $finish;
+			data_fail <= 3;
+			USB_DIR <= 0;
+			#20;
+			
+			// figure 24
+			REG_RW <= 0;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			#20;
+	
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			#20;
+		
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;	
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_NXT <= 1;
+			#20;
+	
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_DIR <= 1;
+			#20;
+	
+			if (REG_FAIL != 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_DATA_TO_ULPI <= data_fail;
+			USB_NXT <= 0;
+			#20;
+
+			if (RXCMD != data_fail) $finish;
+			data_fail <= 4;
+			USB_DIR <= 0;
+			#20;
 		end
 
+		// not fails, but corner-cases
+		repeat(2) begin
+			data <= 1;
+			#20;
+
+			// figure 25, 26
+			REG_RW <= 0;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			#20;
+			
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			#20;
+	
+			// we are in REG_READ;
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			#20;	
+		
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_NXT <= 1;
+			#20;
+			USB_DIR <= 1;
+			USB_NXT <= 0;
+			USB_DATA_TO_ULPI <= data;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			#20;
+			USB_DIR <= 1;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			#20;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			if (REG_DATA_O != data) $finish;
+			USB_DATA_TO_ULPI <= data + 1;
+			data <= data + 1;
+			#20;
+			if (RXCMD != data) $finish;
+			USB_DIR <= 0;
+			data  <= data + 1;
+			#20;
+
+			// figure 28
+			REG_RW <= 0;
+			REG_EN <= 1;
+			REG_ADDR <= data[5:0];
+			#20;
+			
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			#20;
+	
+			// we are in REG_READ;
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			#20;	
+		
+			if (USB_DATA_FROM_ULPI != {2'b11, data[5:0]}) $finish;
+			if (REG_FAIL == 1) $finish;
+			USB_NXT <= 1;
+			#20;
+			USB_DIR <= 1;
+			USB_NXT <= 0;
+			USB_DATA_TO_ULPI <= data;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			#20;
+			USB_DIR <= 1;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			#20;
+			USB_DIR <= 0;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			if (REG_DATA_O != data) $finish;
+			#20;
+			USB_DIR <= 1;
+			USB_DATA_TO_ULPI <= data + 1;
+			data <= data + 1;
+			#40;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			if (RXCMD != data) $finish;
+			USB_DIR <= 0;
+			data <= data + 1;
+			#20;
+		end
 	end
 	
 	// USB write

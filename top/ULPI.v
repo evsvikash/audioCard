@@ -212,15 +212,24 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		REG_READ_DATA: begin
-			if (last_usb_dir) begin
+			if (last_usb_dir && USB_DIR && !USB_NXT) begin
 				reg_val <= USB_DATA_I;
 				state <= REG_READ_END;
+			end else if (USB_DIR && USB_NXT) begin
+				state <= READ_DATA;
+				reg_op_failed <= 1;
 			end else if (!last_usb_dir && !USB_DIR && USB_NXT) begin
 				state <= REG_READ_END;
 			end
 		end
 		REG_READ_END: begin
-			state <= IDLE;
+			if (!USB_DIR) begin
+				state <= IDLE;
+			end else begin
+				state <= READ_DATA;
+				//well... we must do it here.
+				rxcmd <= USB_DATA_I;
+			end
 		end
 		WRITE_DATA_PID: begin
 			usb_data_o_get_next <= 0;
@@ -283,6 +292,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			state <= next_state;
 		end
 		READ_DATA_END: begin
+			//TODO what if we are here, but we have not written anything?
 			state <= next_state;
 		end
 		default: begin
