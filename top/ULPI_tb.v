@@ -2,7 +2,7 @@
 module ULPI_tb(output clk);
 
 reg CLK, NRST, USB_DIR, USB_NXT, REG_RW, REG_EN, USB_DATA_IN_START_END;
-reg [7:0] REG_DATA_I, USB_DATA_IN, data, USB_DATA_TO_ULPI;
+reg [7:0] REG_DATA_I, USB_DATA_IN, data, USB_DATA_TO_ULPI, data_fail;
 reg [5:0] REG_ADDR;
 
 wire USB_RESETN, USB_STP, USB_CS, REG_DONE, REG_FAIL, USB_DATA_IN_STRB;
@@ -67,6 +67,7 @@ end
 always begin
 	// init our regs;
 	data <= 0; 
+	data_fail <= 0;
 	USB_DIR <= 0;
 	USB_NXT <= 0;
 	REG_RW <= 0;
@@ -151,10 +152,13 @@ always begin
 		// we are in idle
 
 
-		//test reg write with fail
+		//test reg write with fail (and last not failing.
+		//It's a test, so I give up at doing it longer)
 		//there are 4 moments, when fail may occure. Therefore this section is so long.
 		repeat(2) begin
+			//ULPI 1.1 Figure 23
 			data <= data + 1;
+			data_fail <= 1;
 			#20;
 			REG_RW <= 1;
 			REG_EN <= 1;
@@ -175,10 +179,15 @@ always begin
 			if (REG_FAIL != 1) $finish;
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_DATA_TO_ULPI <= data_fail;
+			#20;
+			if (RXCMD != data_fail) $finish;
 			USB_DIR <= 0;
+			data_fail <= 2;
 			#20;
 	
 			//we are in idle
+			//ULPI 1.1 Figure 23
 			REG_RW <= 1;
 			REG_EN <= 1;
 			REG_ADDR <= data[5:0];
@@ -203,13 +212,20 @@ always begin
 			USB_DIR <= 1;
 			USB_NXT <= 0; //TODO here something, how USB_NXT behaves when USB_DIR == 1?
 			#20;
+			
+			USB_DATA_TO_ULPI <= data_fail;
 			if (REG_FAIL != 1) $finish;
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_DATA_TO_ULPI <= data_fail;
+			#20;
+			if (RXCMD != data_fail) $finish;
 			USB_DIR <= 0;
+			data_fail <= 3;
 			#20;
 	
 			//we are in idle
+			//Figure 23 + my ideas
 			REG_RW <= 1;
 			REG_EN <= 1;
 			REG_ADDR <= data[5:0];
@@ -243,10 +259,15 @@ always begin
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_OUT_FAIL == 1) $finish;
 			if (USB_STP == 1) $finish;
+			USB_DATA_TO_ULPI <= data_fail;
+			#20;
+			if (RXCMD != data_fail) $finish;
+			data_fail <= 4;
 			USB_DIR <= 0;
 			#20;
 	
 			//we are in idle
+			//THIS IS NOT FAIL, ULPI 1.1 figure 27
 			REG_RW <= 1;
 			REG_EN <= 1;
 			REG_ADDR <= data[5:0];
@@ -279,10 +300,15 @@ always begin
 			if (REG_FAIL == 1) $finish;
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_OUT_FAIL == 1) $finish;
-	//		if (REG_DONE == 1) $finish; //TODO...
+			if (REG_DONE != 1) $finish;
 			if (USB_STP != 1) $finish; 
 			#20;
-			if (REG_FAIL != 1) $finish;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_DATA_TO_ULPI <= data_fail;
+			#20;
+			if (RXCMD != data_fail) $finish;
 			USB_DIR <= 0;
 			#20;
 		end

@@ -86,7 +86,7 @@ assign STATE = state;
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
 		state <= RESET;
-		next_state <= RESET;
+		next_state <= IDLE;
 
 		rxcmd <= 8'd0;
 		reg_val <= 8'd0;
@@ -149,13 +149,16 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 
 			if (USB_DIR) begin
 				state <= READ_DATA;
+				next_state <= IDLE;
 			end else if (usb_data_o_start) begin
 			 	state <= WRITE_DATA_PID;
+				next_state <= IDLE;
 			end else if (reg_en) begin
 				reg_en <= 0;
 				case (reg_rw)
 				1'b0: begin
 					state <= REG_READ;
+					next_state <= IDLE;
 				end
 				1'b1: begin
 					state <= REG_WRITE;
@@ -194,8 +197,8 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			if (!USB_DIR) begin
 				state <= next_state;
 			end else begin
+				// here we are not failing. 
 				state <= READ_DATA;
-				reg_op_failed <= 1;
 			end
 		end
 		REG_READ: begin
@@ -277,10 +280,10 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		READ_DATA_FAIL: begin
-			state <= IDLE;
+			state <= next_state;
 		end
 		READ_DATA_END: begin
-			state <= IDLE;
+			state <= next_state;
 		end
 		default: begin
 			state <= IDLE;
