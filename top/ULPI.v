@@ -140,7 +140,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				state <= POST_RESET;
 		end
 		POST_RESET: begin
-			if (!last_usb_dir & !USB_DIR) begin
+			if (!USB_DIR) begin
 				state <= IDLE;
 			end
 		end

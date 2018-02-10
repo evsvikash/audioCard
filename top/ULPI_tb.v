@@ -110,7 +110,6 @@ always begin
 	#20;
 
 	//test reg write
-	//TODO FUN_CTRL_REG with RESET
 	repeat(10) begin
 		data <= data + 1;
 		#20;
@@ -286,6 +285,77 @@ always begin
 			if (REG_FAIL != 1) $finish;
 			USB_DIR <= 0;
 			#20;
+		end
+
+		//write FUN_CTRL reset
+		repeat(2) begin
+			REG_ADDR <= 4;
+			REG_DATA_I <= 8'b01100000;
+			REG_RW <= 1;
+			REG_EN <= 1;
+			#20;
+
+			REG_RW <= 0;
+			REG_EN <= 0;
+			REG_ADDR <= 0;
+			REG_DATA_I <= 0;
+			#20;
+			
+			// we are in REG_WRITE;
+			if (USB_DATA_FROM_ULPI != {2'b10, 6'd4}) $finish;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_NXT <= 1;
+			#20;
+
+			if (USB_DATA_FROM_ULPI != {2'b10, 6'd4}) $finish;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			#20;
+
+			if (USB_DATA_FROM_ULPI != 8'b01100000) $finish;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_NXT <= 0;
+			#20;
+
+			if (USB_STP != 1) $finish;
+			if (REG_DONE != 1) $finish;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			
+			#20;
+			USB_DIR <= 1;
+			#20;
+
+			repeat(8) begin
+				if (READY == 1) $finish;
+				if (USB_STP == 1) $finish;
+				#20;
+			end
+			USB_DIR <= 0;
+			#20;
+			
+			if (READY != 1) $finish;
+			USB_DIR <= 1;
+			#20;
+
+			if (READY != 1) $finish;
+			USB_DIR <= 1;
+			USB_DATA_TO_ULPI <= 8'b01010101;
+			#20;
+
+			if (READY != 1) $finish;
+			if (RXCMD != 8'b01010101) $finish;
+			if (REG_FAIL == 1) $finish;
+			if (USB_DATA_IN_FAIL == 1) $finish;
+			if (USB_DATA_OUT_FAIL == 1) $finish;
+			USB_DIR <= 0;
+			#40;
 		end
 	end	
 	
