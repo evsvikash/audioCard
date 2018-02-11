@@ -19,11 +19,11 @@ module ULPI (
 	input [7:0] REG_DATA_I,
 	output [7:0] REG_DATA_O,
 	output REG_DONE,
-	output REG_FAIL, // WARNING! If we are in READ_DATA state, this output
-			 // is always 1, even if we have not failed!
+	output REG_FAIL,
+	
+	//---------------------------------------------------------------------
 
 	output [7:0] RXCMD,
-
 	output READY,
 
 	//---------------------------------------------------------------------
@@ -31,14 +31,16 @@ module ULPI (
 	input [7:0] USB_DATA_IN,
 	output USB_DATA_IN_STRB,	// next chunk ready for reception
 	input USB_DATA_IN_START_END,	// if IN_START_END == '1', TRANSMISSION STARTS OR ENDS
-	output USB_DATA_IN_FAIL, //WARNING! The same behavior as in REG_FAIL output
+	output USB_DATA_IN_FAIL,
 
 	//---------------------------------------------------------------------
 	
 	output [7:0] USB_DATA_OUT,
 	output USB_DATA_OUT_STRB,
 	output USB_DATA_OUT_END,
-	output USB_DATA_OUT_FAIL, //WARNING! The same behavior as in REG_FAIL output
+	output USB_DATA_OUT_FAIL,
+
+	//---------------------------------------------------------------------
 	
 	output [7:0] STATE
 );
@@ -74,7 +76,7 @@ reg reg_en, reg_rw;
 reg usb_data_o_start;
 
 reg last_usb_dir, last_usb_nxt, usb_data_o_get_next, usb_data_i_set_next;
-reg usb_data_o_failed, reg_op_failed;
+reg usb_data_o_failed, reg_op_failed, usb_data_i_end;
 
 wire [7:0] USB_DATA_I, USB_DATA_O;
 
@@ -107,6 +109,8 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 
 		usb_data_o_failed <= 0;
 		reg_op_failed <= 0;
+
+		usb_data_i_end <= 0;
 
 	end else begin
 		last_usb_dir <= USB_DIR;
@@ -146,6 +150,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		end
 		IDLE: begin
 			usb_stupid_test <= 1'b0;
+			usb_data_i_end <= 0;
 
 			if (USB_DIR) begin
 				state <= READ_DATA;
@@ -284,16 +289,18 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 						state <= READ_DATA_FAIL;
 				end else begin
 					usb_data_i_reg <= USB_DATA_I;
-					usb_data_i_set_next <= 1;		
+					usb_data_i_set_next <= 1;	
+					usb_data_i_end <= 1;
 				end
 			end
 		end
 		READ_DATA_FAIL: begin
 			state <= next_state;
+			usb_data_i_end <= 0;
 		end
 		READ_DATA_END: begin
-			//TODO what if we are here, but we have not written anything?
 			state <= next_state;
+			usb_data_i_end <= 0;
 		end
 		default: begin
 			state <= IDLE;
@@ -310,7 +317,7 @@ reg USB_DATA_IN_STRB_a, USB_DATA_IN_FAIL_a;
 reg USB_DATA_OUT_STRB_a, USB_DATA_OUT_END_a, USB_DATA_OUT_FAIL_a;
 reg [7:0] USB_DATA_OUT_a;
 
-always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_reg, usb_data_o_reg, usb_data_o_get_next, usb_data_i_set_next) begin
+always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_reg, usb_data_o_reg, usb_data_o_get_next, usb_data_i_set_next, usb_data_i_end) begin
 	case (state)
 	RESET: begin
 		ready_a = 1'b0;
@@ -548,7 +555,7 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		USB_DATA_IN_FAIL_a = 0;
 
 		USB_DATA_OUT_STRB_a = 0;
-		USB_DATA_OUT_END_a = 1;
+		USB_DATA_OUT_END_a = usb_data_i_end;
 		USB_DATA_OUT_FAIL_a = 0;
 		USB_DATA_OUT_a = 0;	
 	end

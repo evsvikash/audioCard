@@ -154,7 +154,7 @@ always begin
 
 		//test reg write with fail (and last not failing.
 		//It's a test, so I give up at doing it longer)
-		//there are 4 moments, when fail may occure. Therefore this section is so long.
+		//there are 4 combinations, when fail may occure. Therefore this section is so long.
 		repeat(2) begin
 			//ULPI 1.1 Figure 23
 			data <= data + 1;
@@ -184,6 +184,8 @@ always begin
 			if (RXCMD != data_fail) $finish;
 			USB_DIR <= 0;
 			data_fail <= 2;
+			#20;
+			if (USB_DATA_OUT_END == 1) $finish;
 			#20;
 	
 			//we are in idle
@@ -222,6 +224,8 @@ always begin
 			if (RXCMD != data_fail) $finish;
 			USB_DIR <= 0;
 			data_fail <= 3;
+			#20;
+			if (USB_DATA_OUT_END == 1) $finish;
 			#20;
 	
 			//we are in idle
@@ -264,6 +268,8 @@ always begin
 			if (RXCMD != data_fail) $finish;
 			data_fail <= 4;
 			USB_DIR <= 0;
+			#20;
+			if (USB_DATA_OUT_END == 1) $finish;
 			#20;
 	
 			//we are in idle
@@ -310,6 +316,8 @@ always begin
 			#20;
 			if (RXCMD != data_fail) $finish;
 			USB_DIR <= 0;
+			#20;
+			if (USB_DATA_OUT_END == 1) $finish;
 			#20;
 		end
 
@@ -381,7 +389,9 @@ always begin
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_OUT_FAIL == 1) $finish;
 			USB_DIR <= 0;
-			#40;
+			#20;
+			if (USB_DATA_OUT_END == 1) $finish;
+			#20;
 		end
 	end	
 	
@@ -463,6 +473,8 @@ always begin
 			data_fail <= 2;
 			USB_DIR <= 0;
 			#20;
+			if (USB_DATA_OUT_END == 1) $finish;
+			#20;
 	
 			// figure 23
 			REG_RW <= 0;
@@ -496,6 +508,9 @@ always begin
 			if (RXCMD != data_fail) $finish;
 			data_fail <= 3;
 			USB_DIR <= 0;
+			#20;
+
+			if (USB_DATA_OUT_END == 1) $finish;
 			#20;
 			
 			// figure 24
@@ -532,6 +547,9 @@ always begin
 			if (RXCMD != data_fail) $finish;
 			data_fail <= 4;
 			USB_DIR <= 0;
+			#20;
+
+			if (USB_DATA_OUT_END == 1) $finish;
 			#20;
 		end
 
@@ -578,9 +596,13 @@ always begin
 			USB_DATA_TO_ULPI <= data + 1;
 			data <= data + 1;
 			#20;
+
 			if (RXCMD != data) $finish;
 			USB_DIR <= 0;
 			data  <= data + 1;
+			#20;
+
+			if (USB_DATA_OUT_END == 1) $finish;
 			#20;
 
 			// figure 28
@@ -630,6 +652,9 @@ always begin
 			if (RXCMD != data) $finish;
 			USB_DIR <= 0;
 			data <= data + 1;
+			#20;
+
+			if (USB_DATA_OUT_END == 1) $finish;
 			#20;
 		end
 	end
@@ -762,7 +787,10 @@ always begin
 			if (USB_DATA_IN_FAIL != 1) $finish;
 			if (USB_DATA_IN_STRB == 1) $finish;
 			USB_DIR <= 0;
-			#40;
+			#20;
+
+			if (USB_DATA_OUT_END == 1) $finish;
+			#20;
 		end	
 
 	end
@@ -770,6 +798,7 @@ always begin
 	data <= 0;
 	#20;
 
+	//USB read
 	repeat(10) begin
 		data <= data + 1;
 		#20;
