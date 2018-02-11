@@ -63,7 +63,6 @@ parameter WRITE_DATA = `PARAM_SIZE'd13;
 parameter WRITE_DATA_END = `PARAM_SIZE'd14;
 parameter UTMI_RESET = `PARAM_SIZE'd15;
 parameter READ_DATA_FAIL = `PARAM_SIZE'd16;
-parameter FAIL = `PARAM_SIZE'b01010101;
 
 `define REG_MAP_SIZE 6
 parameter FUNC_CTRL_REG = `REG_MAP_SIZE'h04;
@@ -260,7 +259,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				state <= READ_DATA;
 				usb_data_o_start <= 0;
 				usb_data_o_failed <= 1;
-			end else if (USB_DATA_IN_START_END) begin //TODO
+			end else if (USB_DATA_IN_START_END) begin
 				state <= WRITE_DATA_END;
 				usb_data_o_start <= 0;
 			end else if (USB_NXT) begin
@@ -268,8 +267,6 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 				usb_data_o_get_next <= 1;
 			end
 		end
-		/*FAIL: begin
-		end*/
 		WRITE_DATA_END: begin
 			state <= IDLE;
 		end

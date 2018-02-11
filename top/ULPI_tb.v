@@ -212,7 +212,7 @@ always begin
 			if (USB_DATA_IN_FAIL == 1) $finish;
 			if (USB_DATA_OUT_FAIL == 1) $finish;
 			USB_DIR <= 1;
-			USB_NXT <= 0; //TODO here something, how USB_NXT behaves when USB_DIR == 1?
+			USB_NXT <= 0;
 			#20;
 			
 			USB_DATA_TO_ULPI <= data_fail;
@@ -754,7 +754,7 @@ always begin
 		if (USB_DATA_IN_FAIL == 1) $finish;
 		if (USB_DATA_IN_STRB == 1) $finish;
 		if (USB_STP != 1) $finish;
-		if (USB_DATA_FROM_ULPI == data) $finish; //TODO what should be here?
+		if (USB_DATA_FROM_ULPI == data) $finish;
 		USB_DATA_IN_START_END <= 0;
 		USB_NXT <= 0;
 		#20;		
