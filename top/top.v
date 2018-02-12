@@ -159,7 +159,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		SET_ULPI_START : begin
-			if (clk_10MHz_cnt >= 65000) begin
+			if (clk_10MHz_cnt >= 65000) begin //Why? I don't remember, but if it works, leave it.
 				fun_ctrl_reg_val <= 8'b01100101;
 				state <= W_FUN_CTRL_REG;
 				next_state <= DETECT_SE0;
