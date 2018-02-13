@@ -117,16 +117,55 @@ always begin
 	if (usb_data_input != 8'b01010100) $finish;
 	#10;
 	if (usb_stp != 1) $finish;
+	#10;
+	#10;
+	#10;
+	if (usb_data_input != 8'b01000000) $finish;
+	usb_nxt <= 1;
+	#10;
+	if (usb_data_input != 8'b01000000) $finish;
+	usb_nxt <= 1;
 	#10;		
 	// now we should receive chirp K for at least 2ms (constant 0)
-	repeat(6 * 20000 - 1) begin
+	repeat(6 * 20000) begin
 		if (usb_data_input != 0) $finish;
 		usb_nxt <= 1;	
 		#10;
 	end
+	usb_nxt <= 0;
 	if (usb_data_input != 0) $finish;
+	#10;
+	#10;
 	if (usb_stp != 1) $finish;
 
+	repeat(4) begin
+		// now we should send K-J-K-J-K-J sequence
+		//send K
+		usb_data_output <= 8'b01010110;
+		usb_dir <= 1;
+		#10;
+		#10;
+		usb_dir <= 0;
+		// wait for 3ms (6 * 30 * 10 + 100)
+		#1900;
+
+		//send J
+		usb_dir <= 1;
+		usb_data_output <= 8'b01010101;
+		#10;
+		#10;
+		usb_dir <= 0;
+		#1900;
+	end
+	#10;
+	if (usb_data_input != 8'b10000100) $finish;
+	usb_nxt <= 1;
+	#10;
+	if (usb_data_input != 8'b01000000) $finish;
+	usb_nxt <= 0;
+	#10;
+	if (usb_stp != 1) $finish;
+		
 	#300;
 	$finish;
 		
