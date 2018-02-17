@@ -460,6 +460,6 @@ always @(state, fun_ctrl_reg_val) begin
 	endcase
 end
 
-assign LED = ulpi_rxcmd_o;
+assign LED = ~state;
 
 endmodule

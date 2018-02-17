@@ -314,7 +314,7 @@ reg USB_DATA_IN_STRB_a, USB_DATA_IN_FAIL_a;
 reg USB_DATA_OUT_STRB_a, USB_DATA_OUT_END_a, USB_DATA_OUT_FAIL_a;
 reg [7:0] USB_DATA_OUT_a;
 
-always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_reg, usb_data_o_reg, usb_data_o_get_next, usb_data_i_set_next, usb_data_i_end) begin
+always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_reg, usb_data_o_reg, usb_data_o_get_next, usb_data_i_set_next, usb_data_i_end, reg_op_failed, usb_data_o_failed) begin
 	case (state)
 	RESET: begin
 		ready_a = 1'b0;
