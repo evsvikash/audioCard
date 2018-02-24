@@ -72,7 +72,7 @@ reg [7:0] reg_val, rxcmd, usb_data_i_reg, usb_data_o_reg;
 reg [5:0] reg_addr;
 
 reg reg_en, reg_rw;
-reg usb_data_o_start;
+reg usb_data_o_start, usb_data_o_end;
 
 reg last_usb_dir, last_usb_nxt, usb_data_o_get_next, usb_data_i_set_next;
 reg usb_data_o_failed, reg_op_failed, usb_data_i_end;
@@ -105,6 +105,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		usb_data_o_get_next <= 0;
 		usb_data_i_set_next <= 0;
 		usb_data_o_start <= 0;
+		usb_data_o_end <= 0;
 
 		usb_data_o_failed <= 0;
 		reg_op_failed <= 0;
@@ -131,6 +132,8 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			usb_data_o_start <= 1;	
 		end else if (usb_data_o_get_next == 1) begin
 			usb_data_o_get_next <= 0;
+		end else if (USB_DATA_IN_START_END && usb_data_o_start) begin
+			usb_data_o_end <= 1;
 		end
 		// end of RO/USBWHT"SCH"SYS -----------------------------------
 
@@ -240,9 +243,15 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 
 			if (!last_usb_dir & !USB_DIR) begin
 				if (USB_NXT & usb_stupid_test) begin
-					usb_data_o_reg <= USB_DATA_IN;
-					usb_data_o_get_next <= 1;
-					state <= WRITE_DATA;
+					if (!usb_data_o_end && !USB_DATA_IN_START_END) begin
+						usb_data_o_reg <= USB_DATA_IN;
+						usb_data_o_get_next <= 1;
+						state <= WRITE_DATA;
+					end else begin
+						state <= WRITE_DATA_END;
+						usb_data_o_end <= 0;
+						usb_data_o_start <= 0;
+					end
 				end else if (USB_NXT) begin
 					usb_stupid_test <= 1'b1; //TOTHINK
 				end
@@ -560,7 +569,7 @@ always @(NRST_A_USB, state, reg_addr, reg_val, rxcmd, last_usb_nxt, usb_data_i_r
 		ready_a = 1'b1;
 	
 		USB_STP_a = 1'b0;
-		USB_DATA_O_a = {2'b01, usb_data_o_reg[5:0]};
+		USB_DATA_O_a = {4'b0100, usb_data_o_reg[3:0]};
 		
 		REG_DATA_O_a = 8'd0;
 		REG_DONE_a = 1'b0;

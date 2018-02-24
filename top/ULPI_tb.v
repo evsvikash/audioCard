@@ -675,7 +675,7 @@ always begin
 		if (USB_DATA_IN_STRB != 1) $finish;
 		#20;
 
-		if (USB_DATA_FROM_ULPI != {2'b01, data[5:0]}) $finish;
+		if (USB_DATA_FROM_ULPI != {4'b0100, data[3:0]}) $finish;
 		if (REG_FAIL == 1) $finish;
 		if (USB_DATA_OUT_FAIL == 1) $finish;
 		if (USB_DATA_IN_FAIL == 1) $finish;
@@ -683,7 +683,7 @@ always begin
 		USB_NXT <= 0;	
 		#20;
 
-		if (USB_DATA_FROM_ULPI != {2'b01, data[5:0]}) $finish;
+		if (USB_DATA_FROM_ULPI != {4'b0100, data[3:0]}) $finish;
 		if (REG_FAIL == 1) $finish;
 		if (USB_DATA_OUT_FAIL == 1) $finish;
 		if (USB_DATA_IN_FAIL == 1) $finish;
@@ -695,7 +695,7 @@ always begin
 		if (USB_DATA_OUT_FAIL == 1) $finish;
 		if (USB_DATA_IN_FAIL == 1) $finish;
 		if (USB_DATA_IN_STRB == 1) $finish;
-		if (USB_DATA_FROM_ULPI != {2'b01, data[5:0]}) $finish;
+		if (USB_DATA_FROM_ULPI != {4'b0100, data[3:0]}) $finish;
 		data <= data + 1;
 		USB_DATA_IN <= data + 1;
 		USB_NXT <= 1;
@@ -793,6 +793,53 @@ always begin
 			#20;
 		end	
 
+		// Send only pid
+		data <= data + 1;
+		#20;
+
+		USB_DATA_IN <= data;
+		USB_DATA_IN_START_END <= 1;
+		#20;
+	
+		USB_DATA_IN_START_END <= 0;
+		if (REG_FAIL == 1) $finish;
+		if (USB_DATA_OUT_FAIL == 1) $finish;
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB != 1) $finish;
+		#20;
+
+		USB_DATA_IN_START_END <= 1;
+		if (USB_DATA_FROM_ULPI != {4'b0100, data[3:0]}) $finish;
+		if (REG_FAIL == 1) $finish;
+		if (USB_DATA_OUT_FAIL == 1) $finish;
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		#20;
+
+		USB_DATA_IN_START_END <= 0;
+		if (USB_DATA_FROM_ULPI != {4'b0100, data[3:0]}) $finish;
+		if (REG_FAIL == 1) $finish;
+		if (USB_DATA_OUT_FAIL == 1) $finish;
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		USB_NXT <= 1;	
+		#20;
+
+		if (USB_DATA_FROM_ULPI != {4'b0100, data[3:0]}) $finish;
+		if (REG_FAIL == 1) $finish;
+		if (USB_DATA_OUT_FAIL == 1) $finish;
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		USB_NXT <= 1;	
+		#20;
+
+		if (REG_FAIL == 1) $finish;
+		if (USB_DATA_OUT_FAIL == 1) $finish;
+		if (USB_DATA_IN_FAIL == 1) $finish;
+		if (USB_DATA_IN_STRB == 1) $finish;
+		if (USB_STP != 1) $finish;
+		USB_NXT <= 0;
+		#20;
 	end
 	
 	data <= 0;
