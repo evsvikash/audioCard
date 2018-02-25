@@ -161,6 +161,9 @@ always begin
 	if (usb_data_input != 8'b10000100) $finish;
 	usb_nxt <= 1;
 	#10;
+	if (usb_data_input != 8'b10000100) $finish;
+	usb_nxt <= 1;
+	#10;
 	if (usb_data_input != 8'b01000000) $finish;
 	usb_nxt <= 0;
 	#10;

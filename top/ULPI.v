@@ -183,8 +183,9 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			if (!last_usb_dir & !USB_DIR) begin
 				if (USB_NXT & usb_stupid_test) begin
 					state <= REG_WRITE_DATA;
-				end 
-				usb_stupid_test <= 1'b1; //should it really be here?
+				end else if (USB_NXT) begin 
+					usb_stupid_test <= 1'b1; //should it really be here?
+				end
 			end else begin
 				state <= READ_DATA;
 				reg_op_failed <= 1;
