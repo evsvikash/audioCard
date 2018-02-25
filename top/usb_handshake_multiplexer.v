@@ -305,6 +305,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		end*/
 		IDLE: begin
 			if (ulpi_usb_data_o_strb_a) begin
+				led_val <= 8'b01010101;
 				if (ulpi_usb_data_o_a == PID_SETUP) begin
 					state <= SETUP_TOKEN;
 					token[23:8] <= 0;
