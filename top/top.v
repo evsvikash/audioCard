@@ -12,7 +12,6 @@ module top (
 	inout [7:0] LED
 );
 
-
 //Clock wires
 wire CLK_60M;
 
@@ -88,6 +87,11 @@ parameter DETECT_J = `PARAM_SIZE'd16;
 parameter SET_ULPI_START = `PARAM_SIZE'd17;
 parameter SET_ULPI_CHIRP = `PARAM_SIZE'd18;
 parameter SET_ULPI_HS_IDLE = `PARAM_SIZE'd19;
+parameter HANDSHAKE_ACK = `PARAM_SIZE'd20;
+parameter HANDSHAKE_END = `PARAM_SIZE'd21;
+parameter SETUP_TOKEN = `PARAM_SIZE'd22;
+parameter SEND_TOKEN = `PARAM_SIZE'd23;
+parameter SEND_DATA = `PARAM_SIZE'd24;
 parameter FAIL = `PARAM_SIZE'b01010101;
 
 `define REG_MAP_SIZE 6
@@ -95,11 +99,27 @@ parameter FUN_CTRL_REG = `REG_MAP_SIZE'h04;
 parameter OTG_CTRL_REG  = `REG_MAP_SIZE'h0A;
 parameter SCRATCH_REG   = `REG_MAP_SIZE'h16;
 
+parameter PID_OUT = 8'b11100001;
+parameter PID_IN  = 8'b01101001;
+parameter PID_SOF = 8'b10100101;
+parameter PID_SETUP = 8'b00101101;
+parameter PID_DATA0 = 8'b11000011;
+parameter PID_DATA1 = 8'b01001011;
+parameter PID_DATA2 = 8'b10000111;
+parameter PID_MDATA = 8'b00001111;
+parameter PID_ACK = 8'b11010010;
+parameter PID_NAK = 8'b01011010;
+parameter PID_STALL = 8'b00011110;
+parameter PID_NYET = 8'b10010110;
+parameter PID_PING = 8'b10110100;
 
 reg [`PARAM_SIZE - 1 : 0] state, next_state, previous_state;
 reg [7 : 0] ulpi_reg_data_o, ulpi_rxcmd_o, fun_ctrl_reg_val;
 reg [1:0] cnt;
 reg [1:0] jk_trans;
+reg [1:0] token_part;
+reg [23:0] token;
+reg selected_EP;
 
 reg clk_10MHz, nrst_clk_10MHz_cnt;
 reg [15:0] clk_10MHz_cnt;
@@ -130,6 +150,7 @@ always @(posedge clk_10MHz, negedge nrst_clk_10MHz_cnt) begin
 	end
 end
 
+reg [7:0] led_val;
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
 
@@ -144,6 +165,13 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		jk_trans <= 0;
 
 		nrst_clk_10MHz_cnt <= 0;
+
+		token <= 0;
+		token_part <= 0;
+	
+		selected_EP <= 0;
+
+		led_val <= 0;
 	end else begin
 
 		nrst_clk_10MHz_cnt <= 1;
@@ -159,12 +187,12 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		SET_ULPI_START : begin
-			if (clk_10MHz_cnt >= 65000) begin //Why? I don't remember, but if it works, leave it.
+//			if (clk_10MHz_cnt >= 65000) begin //Why? I don't remember, but if it works, leave it.
 				fun_ctrl_reg_val <= 8'b01100101;
 				state <= W_FUN_CTRL_REG;
 				next_state <= DETECT_SE0;
 				previous_state <= SET_ULPI_START;
-			end
+//			end
 		end	
 		DETECT_SE0: begin
 			if (ulpi_rxcmd_o[1:0] != 2'b00 || !ulpi_ready_a) begin
@@ -243,8 +271,61 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			state <= WAIT_RD;
 		end*/
 		IDLE: begin
+			if (ulpi_usb_data_o_strb_a) begin
+				if (ulpi_usb_data_o_a == PID_SETUP) begin
+					state <= SETUP_TOKEN;
+					token[23:8] <= 0;
+					/* it should be moved to SETUP_TOKEN state...
+				 	   But ULPI code is already written, so for a sake
+					   of time, I am leaveing it here.
+					*/
+					token[7:0] <= ulpi_usb_data_o;
+					token_part <= 1;
+				end else if (ulpi_usb_data_o_a == PID_DATA0) begin
+					state <= SEND_DATA; 
+				end
+				
+			end
+		end
+		SETUP_TOKEN: begin
+			if (ulpi_usb_data_o_fail_a) begin
+				state <= IDLE;
+			end else begin
+				case(token_part)
+				2'd1: begin
+					if (ulpi_usb_data_o_strb_a) begin
+						token[15:8] <= ulpi_usb_data_o;
+						token_part <= 2;
+					end
+				end
+				2'd2: begin
+					if (ulpi_usb_data_o_strb_a) begin
+						token[23:16] <= ulpi_usb_data_o;
+						token_part <= 0;
+						selected_EP <= token[15];
+						state <= SEND_TOKEN;
+					end
+				default: begin
+					state <= IDLE;
+				end
+			end
+		end
+		SEND_TOKEN: begin
+			if (ulpi_usb_data_o_end_a || ulpi_usb_data_o_fail_a)
+				state <= IDLE;
+		end
+		SEND_DATA: begin
+			if (ulpi_usb_data_o_end_a || ulpi_usb_data_o_fail_a)
+				state <= IDLE;			
 		end
 		FAIL: begin
+		end
+		HANDSHAKE_ACK: begin
+			state <= HANDSHAKE_END;
+		end
+		HANDSHAKE_END: begin
+			if (ulpi_usb_data_i_strobe_a)
+				state <= IDLE;	
 		end
 		WAIT_WR: begin
 			nrst_clk_10MHz_cnt <= 0; //not the best place
@@ -448,6 +529,51 @@ always @(state, fun_ctrl_reg_val) begin
 		ulpi_usb_data_i_a = 0;
 		ulpi_usb_data_i_start_end_a = 0;
 	end
+	HANDSHAKE_ACK: begin
+		ulpi_reg_addr_a = 6'd0;
+		ulpi_reg_data_i_a = 8'd0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b0;
+
+		ulpi_usb_data_i_a = PID_ACK;
+		ulpi_usb_data_i_start_end_a = 1;	
+	end
+	HANDSHAKE_END: begin
+		ulpi_reg_addr_a = 6'd0;
+		ulpi_reg_data_i_a = 8'd0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b0;
+
+		ulpi_usb_data_i_a = PID_ACK;
+		ulpi_usb_data_i_start_end_a = 1;	
+	end
+	SETUP_TOKEN: begin
+		ulpi_reg_addr_a = 6'd0;
+		ulpi_reg_data_i_a = 8'd0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b0;
+
+		ulpi_usb_data_i_a = 0;
+		ulpi_usb_data_i_start_end_a = 0;
+	end
+	SEND_TOKEN: begin
+		ulpi_reg_addr_a = 6'd0;
+		ulpi_reg_data_i_a = 8'd0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b0;
+
+		ulpi_usb_data_i_a = 0;
+		ulpi_usb_data_i_start_end_a = 0;
+	end
+	SEND_DATA: begin
+		ulpi_reg_addr_a = 6'd0;
+		ulpi_reg_data_i_a = 8'd0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b0;
+
+		ulpi_usb_data_i_a = 0;
+		ulpi_usb_data_i_start_end_a = 0;
+	end
 	default: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
@@ -460,6 +586,6 @@ always @(state, fun_ctrl_reg_val) begin
 	endcase
 end
 
-assign LED = ~state;
+assign LED = led_val;
 
 endmodule
