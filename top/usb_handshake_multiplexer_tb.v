@@ -1,5 +1,5 @@
 `timescale 1 ps / 1 ps
-module top_tb(
+module usb_handshake_multiplexer_tb(
 	output clk
 );
 
@@ -20,7 +20,12 @@ assign usb_data_inout = (write_possible == 1'b1) ? usb_data_output : 8'hzz;
 
 assign clk = clk60M;
 
-top DUT (
+wire token_0_strb, clk_10MHz, data_o_strb_0, data_o_end_0, data_o_fail_0;
+
+wire [7:0] data_o_0;
+wire [23:0] token_0; 
+
+usb_handshake_multiplexer DUT (
 	.NRST(nrst),
 	.USB_CLKIN(clk60M),
 	.USB_CS(usb_cs),			
@@ -29,7 +34,15 @@ top DUT (
 	.USB_NXT(usb_nxt),
 	.USB_RESETN(usb_resetn),
 	.USB_STP(usb_stp),
-	.LED(led)
+	.LED(led),
+
+	.clk_10MHz_o(clk_10MHz),
+	.token_0(token_0),
+	.token_0_strb(token_0_strb),
+	.data_o_0(data_o_0),
+	.data_o_strb_0(data_o_strb_0),
+	.data_o_end_0(data_o_end_0),
+	.data_o_fail_0(data_o_fail_0)
 );
 
 always begin
@@ -40,8 +53,10 @@ always begin
 	end
 end
 
+reg [7:0] data;
 always begin
 	nrst <= 1'b0;
+	data <= 0;
 	#10;
 	nrst = 1'b1;
 	repeat(250) begin
@@ -168,8 +183,119 @@ always begin
 	usb_nxt <= 0;
 	#10;
 	if (usb_stp != 1) $finish;
-		
+	#10;
+
+	usb_dir <= 1;
+	#10;
+
+	//send SETUP token
+	usb_data_output <= 8'b00010000;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	usb_dir <= 1;
+	
+	#10;
+	usb_nxt <= 1;
+	usb_data_output <= 8'b00101101;
+	usb_dir <= 1;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	#10;
+	//EP == 4'b0000;
+	//ADDR == 7'b1110110
+	//CRC == TO BE DONE
+	usb_data_output <= 8'b01100000;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	#10;
+	usb_data_output <= 8'b00000111;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	#10;
+	usb_dir <= 0;
+	usb_nxt <= 0;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	#10;
+	if (token_0_strb == 0) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	if (token_0 != 23'b000001110110000000101101) $finish;
+	#10;
+
+	//send DATA token
+	usb_dir <= 1;
+	#10;
+	usb_dir <= 1;
+	usb_data_output <= 8'b00010000;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	#10;
+
+	usb_nxt <= 1;
+	usb_data_output <= 8'b11000011;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+
+	#10;
+	usb_nxt <= 1;
+	usb_data_output <= data + 1;
+	data <= data + 1;
+	//we check in clocked process PID_DATA0. Therefore, right now value is not passed.
+	// TODO? I don't know... Format seems to be the same.  
+//	if (data_o_strb_0 != 1) $finish;
+//	if (data_o_0 != 8'b11000011) $finish;
+	#10;
+
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 != 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	if (data_o_0 != data) $finish;
+	usb_nxt <= 1;
+	usb_data_output <= data + 1;
+	data <= data + 1;
+
+	repeat(250) begin
+		#10;	
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 != 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		if (data_o_0 != data) $finish;
+		usb_data_output <= data + 1;
+		data <= data + 1;
+	end
+
+	usb_nxt <= 0;
+	usb_dir <= 0;
+	#10;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 != 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
+	
+
 	#300;
+	
+	//TODO: difference between DATA0 and DATA1, learn it.
+	//TODO: data_o_fail_0 test
+
 	$finish;
 		
 end
