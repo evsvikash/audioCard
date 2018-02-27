@@ -190,114 +190,178 @@ always begin
 	usb_dir <= 1;
 	#10;
 
-	//send SETUP token
-	usb_data_output <= 8'b00010000;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	usb_dir <= 1;
+	repeat(5) begin
+
+		//send SETUP token
+		usb_data_output <= 8'b00010000;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		usb_dir <= 1;
+		
+		#10;
+		usb_nxt <= 1;
+		usb_data_output <= 8'b00101101;
+		usb_dir <= 1;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+		//EP == 4'b0000;
+		//ADDR == 7'b1110110
+		//CRC == TO BE DONE
+		usb_data_output <= 8'b01100000;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+		usb_data_output <= 8'b00000111;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+		usb_dir <= 0;
+		usb_nxt <= 0;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+		if (token_0_strb == 0) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		if (token_0 != 23'b000001110110000000101101) $finish;
+		#10;
 	
-	#10;
-	usb_nxt <= 1;
-	usb_data_output <= 8'b00101101;
-	usb_dir <= 1;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	#10;
-	//EP == 4'b0000;
-	//ADDR == 7'b1110110
-	//CRC == TO BE DONE
-	usb_data_output <= 8'b01100000;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	#10;
-	usb_data_output <= 8'b00000111;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	#10;
-	usb_dir <= 0;
-	usb_nxt <= 0;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	#10;
-	if (token_0_strb == 0) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	if (token_0 != 23'b000001110110000000101101) $finish;
-	#10;
-
-	//send DATA token
-	usb_dir <= 1;
-	#10;
-	usb_dir <= 1;
-	usb_data_output <= 8'b00010000;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	#10;
-
-	usb_nxt <= 1;
-	usb_data_output <= 8'b11000011;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-
-	#10;
-	usb_nxt <= 1;
-	usb_data_output <= data + 1;
-	data <= data + 1;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	#10;
-
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 != 1) $finish;
-	if (data_o_end_0 == 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
-	if (data_o_0 != data) $finish;
-	if (pid != 8'b11000011) $finish;
-	usb_nxt <= 1;
-	usb_data_output <= data + 1;
-	data <= data + 1;
-
-	repeat(250) begin
-		#10;	
+		//send DATA token
+		usb_dir <= 1;
+		#10;
+		usb_dir <= 1;
+		usb_data_output <= 8'b00010000;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+	
+		usb_nxt <= 1;
+		usb_data_output <= 8'b11000011;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+	
+		#10;
+		usb_nxt <= 1;
+		usb_data_output <= data + 1;
+		data <= data + 1;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+	
 		if (token_0_strb == 1) $finish;
 		if (data_o_strb_0 != 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
 		if (data_o_0 != data) $finish;
+		if (pid != 8'b11000011) $finish;
+		usb_nxt <= 1;
 		usb_data_output <= data + 1;
 		data <= data + 1;
-	end
-
-	usb_nxt <= 0;
-	usb_dir <= 0;
-	#10;
-	if (token_0_strb == 1) $finish;
-	if (data_o_strb_0 == 1) $finish;
-	if (data_o_end_0 != 1) $finish;
-	if (data_o_fail_0 == 1) $finish;
 	
+		repeat(250) begin
+			#10;	
+			if (token_0_strb == 1) $finish;
+			if (data_o_strb_0 != 1) $finish;
+			if (data_o_end_0 == 1) $finish;
+			if (data_o_fail_0 == 1) $finish;
+			if (data_o_0 != data) $finish;
+			usb_data_output <= data + 1;
+			data <= data + 1;
+		end
+	
+		usb_nxt <= 0;
+		usb_dir <= 0;
+		#10;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 != 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+
+
+		//data_o_fail_0 test
+		//send DATA token
+		usb_dir <= 1;
+		#10;
+		usb_dir <= 1;
+		usb_data_output <= 8'b00010000;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+	
+		usb_nxt <= 1;
+		usb_data_output <= 8'b11000011;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+	
+		#10;
+		usb_nxt <= 1;
+		usb_data_output <= data + 1;
+		data <= data + 1;
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		#10;
+	
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 != 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 == 1) $finish;
+		if (data_o_0 != data) $finish;
+		if (pid != 8'b11000011) $finish;
+		usb_nxt <= 1;
+		usb_data_output <= data + 1;
+		data <= data + 1;
+	
+		repeat(10) begin
+			#10;	
+			if (token_0_strb == 1) $finish;
+			if (data_o_strb_0 != 1) $finish;
+			if (data_o_end_0 == 1) $finish;
+			if (data_o_fail_0 == 1) $finish;
+			if (data_o_0 != data) $finish;
+			usb_data_output <= data + 1;
+			data <= data + 1;
+		end
+	
+		usb_nxt <= 0;
+		usb_dir <= 1;
+		usb_data_output <= 8'b00110000;
+		#10;
+
+		if (token_0_strb == 1) $finish;
+		if (data_o_strb_0 == 1) $finish;
+		if (data_o_end_0 == 1) $finish;
+		if (data_o_fail_0 != 1) $finish;
+		#10;
+		
+	end
 
 	#300;
 	
-	//TODO: data_o_fail_0 test
-
 	$finish;
 		
 end
