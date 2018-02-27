@@ -29,7 +29,8 @@ module usb_handshake_multiplexer (
 	output [7:0] data_o_0,
 	output data_o_strb_0,
 	output data_o_end_0,
-	output data_o_fail_0
+	output data_o_fail_0,
+	output [7:0] pid_o
 );
 
  //Clock wires
@@ -154,8 +155,11 @@ reg selected_EP;
 
 reg clk_10MHz, nrst_clk_10MHz_cnt;
 reg [15:0] clk_10MHz_cnt;
+reg [7:0] pid;
 
 assign clk_10MHz_o = clk_10MHz;
+
+assign pid_o = pid;
 
 //k-state - send 0; j-state - send 1 only
 
@@ -205,6 +209,8 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		selected_EP <= 0;
 
 		led_val <= 0;
+
+		pid <= 0;
 	end else begin
 
 		nrst_clk_10MHz_cnt <= 1;
@@ -315,8 +321,10 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					*/
 					token[7:0] <= ulpi_usb_data_o_a;
 					token_part <= 1;
-				end else if (ulpi_usb_data_o_a == PID_DATA0) begin
-					state <= SEND_DATA; 
+				end else if (ulpi_usb_data_o_a == PID_DATA0 || 
+					     ulpi_usb_data_o_a == PID_DATA1) begin
+					state <= SEND_DATA;
+					pid <= ulpi_usb_data_o_a;
 				end
 				
 			end

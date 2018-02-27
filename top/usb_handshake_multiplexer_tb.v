@@ -24,6 +24,7 @@ wire token_0_strb, clk_10MHz, data_o_strb_0, data_o_end_0, data_o_fail_0;
 
 wire [7:0] data_o_0;
 wire [23:0] token_0; 
+wire [7:0] pid;
 
 usb_handshake_multiplexer DUT (
 	.NRST(nrst),
@@ -42,7 +43,8 @@ usb_handshake_multiplexer DUT (
 	.data_o_0(data_o_0),
 	.data_o_strb_0(data_o_strb_0),
 	.data_o_end_0(data_o_end_0),
-	.data_o_fail_0(data_o_fail_0)
+	.data_o_fail_0(data_o_fail_0),
+	.pid_o(pid)
 );
 
 always begin
@@ -256,10 +258,10 @@ always begin
 	usb_nxt <= 1;
 	usb_data_output <= data + 1;
 	data <= data + 1;
-	//we check in clocked process PID_DATA0. Therefore, right now value is not passed.
-	// TODO? I don't know... Format seems to be the same.  
-//	if (data_o_strb_0 != 1) $finish;
-//	if (data_o_0 != 8'b11000011) $finish;
+	if (token_0_strb == 1) $finish;
+	if (data_o_strb_0 == 1) $finish;
+	if (data_o_end_0 == 1) $finish;
+	if (data_o_fail_0 == 1) $finish;
 	#10;
 
 	if (token_0_strb == 1) $finish;
@@ -267,6 +269,7 @@ always begin
 	if (data_o_end_0 == 1) $finish;
 	if (data_o_fail_0 == 1) $finish;
 	if (data_o_0 != data) $finish;
+	if (pid != 8'b11000011) $finish;
 	usb_nxt <= 1;
 	usb_data_output <= data + 1;
 	data <= data + 1;
@@ -293,7 +296,6 @@ always begin
 
 	#300;
 	
-	//TODO: difference between DATA0 and DATA1, learn it.
 	//TODO: data_o_fail_0 test
 
 	$finish;
