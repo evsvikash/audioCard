@@ -30,7 +30,12 @@ module usb_handshake_multiplexer (
 	output data_o_strb_0,
 	output data_o_end_0,
 	output data_o_fail_0,
-	output [7:0] pid_o
+	output [7:0] pid_o,
+
+	input [7:0] data_i_0,
+	input data_i_start_stop_0,
+	output data_i_strb_0,
+	output data_i_fail_0
 );
 
  //Clock wires
@@ -62,12 +67,16 @@ reg token_0_strb_a, data_o_strb_0_a, data_o_end_0_a, data_o_fail_0_a;
 reg [7:0] data_o_0_a;
 reg [23:0] token_0_a;
 
+reg data_i_strb_0_a, data_i_fail_0_a;
+
 assign token_0 = token_0_a;
 assign token_0_strb = token_0_strb_a;
 assign data_o_0 = data_o_0_a;
 assign data_o_strb_0 = data_o_strb_0_a;
 assign data_o_end_0 = data_o_end_0_a;
 assign data_o_fail_0 = data_o_fail_0_a;
+assign data_i_strb_0 = data_i_strb_0_a;
+assign data_i_fail_0 = data_i_fail_0_a;
 
 ULPI ULPI_0 (
 	.CLK_60M(CLK_60M),
@@ -119,11 +128,12 @@ parameter DETECT_J = `PARAM_SIZE'd16;
 parameter SET_ULPI_START = `PARAM_SIZE'd17;
 parameter SET_ULPI_CHIRP = `PARAM_SIZE'd18;
 parameter SET_ULPI_HS_IDLE = `PARAM_SIZE'd19;
-parameter HANDSHAKE_ACK = `PARAM_SIZE'd20;
-parameter HANDSHAKE_END = `PARAM_SIZE'd21;
 parameter SETUP_TOKEN = `PARAM_SIZE'd22;
 parameter SEND_TOKEN = `PARAM_SIZE'd23;
-parameter SEND_DATA = `PARAM_SIZE'd24;
+parameter SEND_DATA_TO_EP = `PARAM_SIZE'd24;
+parameter SEND_DATA_TO_ULPI = `PARAM_SIZE'd25;
+parameter SEND_DATA_TO_ULPI_START = `PARAM_SIZE'd26;
+parameter SEND_DATA_TO_ULPI_END = `PARAM_SIZE'd27;
 parameter FAIL = `PARAM_SIZE'b01010101;
 
 `define REG_MAP_SIZE 6
@@ -323,10 +333,11 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					token_part <= 1;
 				end else if (ulpi_usb_data_o_a == PID_DATA0 || 
 					     ulpi_usb_data_o_a == PID_DATA1) begin
-					state <= SEND_DATA;
+					state <= SEND_DATA_TO_EP;
 					pid <= ulpi_usb_data_o_a;
-				end
-				
+				end	
+			end else if (data_i_start_stop_0) begin
+				state <= SEND_DATA_TO_ULPI_START; 
 			end
 		end
 		SETUP_TOKEN: begin
@@ -358,19 +369,25 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			if (ulpi_usb_data_o_end_a || ulpi_usb_data_o_fail_a)
 				state <= IDLE;
 		end
-		SEND_DATA: begin
+		SEND_DATA_TO_EP: begin
 			if (ulpi_usb_data_o_end_a || ulpi_usb_data_o_fail_a) begin 
 				state <= IDLE;			
 			end
 		end
+		SEND_DATA_TO_ULPI_START: begin
+			state <= SEND_DATA_TO_ULPI;
+		end
+		SEND_DATA_TO_ULPI: begin
+			if (data_i_start_stop_0) begin
+				state <= SEND_DATA_TO_ULPI_END;
+			end else if (ulpi_usb_data_i_fail_a) begin
+				state <= IDLE;
+			end 
+		end
+		SEND_DATA_TO_ULPI_END: begin
+			state <= IDLE;
+		end
 		FAIL: begin
-		end
-		HANDSHAKE_ACK: begin
-			state <= HANDSHAKE_END;
-		end
-		HANDSHAKE_END: begin
-			if (ulpi_usb_data_i_strb_a)
-				state <= IDLE;	
 		end
 		WAIT_WR: begin
 			nrst_clk_10MHz_cnt <= 0; //not the best place
@@ -395,7 +412,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	end
 end
 
-always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_usb_data_o_strb_a, ulpi_usb_data_o_end_a, ulpi_usb_data_o_fail_a) begin
+always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_usb_data_o_strb_a, ulpi_usb_data_o_end_a, ulpi_usb_data_o_fail_a, data_i_0, ulpi_usb_data_i_strb_a, ulpi_usb_data_i_fail_a) begin
 	case (state)
 	RESET: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -413,6 +430,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	DETECT_SE0: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -430,6 +450,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	TXCMD_CHIRP_K: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -447,6 +470,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	TXCMD_CHIRP_K_START: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -464,6 +490,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	TXCMD_CHIRP_K_END: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -481,6 +510,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	IDLE: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -498,6 +530,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	W_FUN_CTRL_REG: begin
 		ulpi_reg_addr_a = FUN_CTRL_REG;
@@ -515,6 +550,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 /*	R_FUN_CTRL_REG: begin
 		ulpi_reg_addr_a = FUN_CTRL_REG;
@@ -538,6 +576,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	DETECT_K: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -555,6 +596,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	DETECT_J: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -572,6 +616,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 /*	R_OTG_CTRL_REG: begin
 		ulpi_reg_addr_a = OTG_CTRL_REG;
@@ -616,6 +663,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	SET_ULPI_CHIRP: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -633,6 +683,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end	
 	SET_ULPI_START: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -650,6 +703,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 /*	WAIT_RD: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -676,6 +732,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	FAIL: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -693,40 +752,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
-	end
-	HANDSHAKE_ACK: begin
-		ulpi_reg_addr_a = 6'd0;
-		ulpi_reg_data_i_a = 8'd0;
-		ulpi_reg_rw_a = 1'b0;
-		ulpi_reg_en_a = 1'b0;
 
-		ulpi_usb_data_i_a = PID_ACK;
-		ulpi_usb_data_i_start_end_a = 1;
-
-		token_0_a = 0;
-		token_0_strb_a = 0;
-
-		data_o_0_a = 0;
-		data_o_strb_0_a = 0;
-		data_o_end_0_a = 0;
-		data_o_fail_0_a = 0;
-	end
-	HANDSHAKE_END: begin
-		ulpi_reg_addr_a = 6'd0;
-		ulpi_reg_data_i_a = 8'd0;
-		ulpi_reg_rw_a = 1'b0;
-		ulpi_reg_en_a = 1'b0;
-
-		ulpi_usb_data_i_a = PID_ACK;
-		ulpi_usb_data_i_start_end_a = 1;
-
-		token_0_a = 0;
-		token_0_strb_a = 0;
-
-		data_o_0_a = 0;
-		data_o_strb_0_a = 0;
-		data_o_end_0_a = 0;
-		data_o_fail_0_a = 0;
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	SETUP_TOKEN: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -744,6 +772,9 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
 	SEND_TOKEN: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -766,8 +797,11 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_strb_0_a = 0;
 		data_o_end_0_a = 0;
 		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
 	end
-	SEND_DATA: begin
+	SEND_DATA_TO_EP: begin
 		ulpi_reg_addr_a = 6'd0;
 		ulpi_reg_data_i_a = 8'd0;
 		ulpi_reg_rw_a = 1'b0;
@@ -790,6 +824,69 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 			data_o_end_0_a = 0;
 			data_o_fail_0_a = 0;	
 		end
+
+		data_i_strb_0_a = 0; 
+		data_i_fail_0_a = 0;
+	end
+	SEND_DATA_TO_ULPI_START: begin
+		ulpi_reg_addr_a = 6'd0;
+		ulpi_reg_data_i_a = 8'd0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b0;
+
+		ulpi_usb_data_i_a = data_i_0;
+		ulpi_usb_data_i_start_end_a = 1;
+
+		token_0_a = 0;
+		token_0_strb_a = 0;
+
+		data_o_0_a = 0;
+		data_o_strb_0_a = 0;
+		data_o_end_0_a = 0;
+		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = ulpi_usb_data_i_strb_a; 
+		data_i_fail_0_a = ulpi_usb_data_i_fail_a;
+	end
+	SEND_DATA_TO_ULPI: begin
+		ulpi_reg_addr_a = 6'd0;
+		ulpi_reg_data_i_a = 8'd0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b0;
+
+		ulpi_usb_data_i_a = data_i_0;
+		ulpi_usb_data_i_start_end_a = 0;
+
+		token_0_a = 0;
+		token_0_strb_a = 0;
+
+		data_o_0_a = 0;
+		data_o_strb_0_a = 0;
+		data_o_end_0_a = 0;
+		data_o_fail_0_a = 0;
+
+		data_i_strb_0_a = ulpi_usb_data_i_strb_a; 
+		data_i_fail_0_a = ulpi_usb_data_i_fail_a;
+	end
+	SEND_DATA_TO_ULPI_END: begin
+		ulpi_reg_addr_a = 6'd0;
+		ulpi_reg_data_i_a = 8'd0;
+		ulpi_reg_rw_a = 1'b0;
+		ulpi_reg_en_a = 1'b0;
+
+		ulpi_usb_data_i_a = 0;
+		ulpi_usb_data_i_start_end_a = 1;
+
+		token_0_a = 0;
+		token_0_strb_a = 0;
+
+		data_o_0_a = 0;
+		data_o_strb_0_a = 0;
+		data_o_end_0_a = 0;
+		data_o_fail_0_a = 0;
+	
+		data_i_strb_0_a = 0;
+		data_i_fail_0_a = ulpi_usb_data_i_fail_a;
 	end
 	default: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -802,6 +899,14 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 
 		token_0_a = 0;
 		token_0_strb_a = 0;
+
+		data_o_0_a = 0;
+		data_o_strb_0_a = 0;
+		data_o_end_0_a = 0;
+		data_o_fail_0_a = 0;
+	
+		data_i_strb_0_a = 0;
+		data_i_fail_0_a = 0;
 	end
 	endcase
 end

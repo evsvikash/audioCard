@@ -26,6 +26,11 @@ wire [7:0] data_o_0;
 wire [23:0] token_0; 
 wire [7:0] pid;
 
+reg [7:0] data_i_0;
+reg data_i_start_stop_0;
+wire data_i_strb_0;
+wire data_i_fail_0;
+
 usb_handshake_multiplexer DUT (
 	.NRST(nrst),
 	.USB_CLKIN(clk60M),
@@ -44,7 +49,12 @@ usb_handshake_multiplexer DUT (
 	.data_o_strb_0(data_o_strb_0),
 	.data_o_end_0(data_o_end_0),
 	.data_o_fail_0(data_o_fail_0),
-	.pid_o(pid)
+	.pid_o(pid),
+
+	.data_i_0(data_i_0),
+	.data_i_start_stop_0(data_i_start_stop_0),
+	.data_i_strb_0(data_i_strb_0),
+	.data_i_fail_0(data_i_fail_0)
 );
 
 always begin
@@ -59,6 +69,8 @@ reg [7:0] data;
 always begin
 	nrst <= 1'b0;
 	data <= 0;
+	data_i_0 <= 0;
+	data_i_start_stop_0 <= 0;
 	#10;
 	nrst = 1'b1;
 	repeat(250) begin
@@ -358,6 +370,63 @@ always begin
 		if (data_o_fail_0 != 1) $finish;
 		#10;
 		
+	end
+	usb_dir <= 0;
+	#10;
+
+	data <= 0;
+	#10;
+	repeat(5) begin
+		data_i_0 <= data;
+		data_i_start_stop_0 <= 1;
+		if (usb_data_input != 0) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+		data_i_start_stop_0 <= 0;
+		if (usb_data_input != 0) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+		if (usb_data_input != 0) $finish;
+		if (data_i_strb_0 != 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		data_i_0 <= data + 1;
+		#10;
+		if (usb_data_input != {4'b0100, data[3:0]}) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		usb_nxt <= 1;
+		#10;
+		if (usb_data_input != {4'b0100, data[3:0]}) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		usb_nxt <= 1;
+		data <= data + 1;
+		#10;
+		repeat(5) begin
+			#10;
+			if (usb_data_input != data) $finish;
+			if (data_i_strb_0 != 1) $finish;
+			if (data_i_fail_0 == 1) $finish;
+			data <= data + 1;
+			data_i_0 <= data + 1;
+		end
+		data_i_start_stop_0 <= 1;
+		#10;
+		if (usb_stp != 1) $finish;
+		usb_nxt <= 0;
+		data_i_start_stop_0 <= 0;
+		#10;
+
+		//TODO: send only PID
+		//TODO: failure.
+		//TODO: usb_nxt strobing
 	end
 
 	#300;
