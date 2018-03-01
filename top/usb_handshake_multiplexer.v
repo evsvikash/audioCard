@@ -379,13 +379,10 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 		end
 		SEND_DATA_TO_ULPI: begin
 			if (data_i_start_stop_0) begin
-				state <= SEND_DATA_TO_ULPI_END;
+				state <= IDLE;
 			end else if (ulpi_usb_data_i_fail_a) begin
 				state <= IDLE;
 			end 
-		end
-		SEND_DATA_TO_ULPI_END: begin
-			state <= IDLE;
 		end
 		FAIL: begin
 		end
@@ -855,7 +852,7 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		ulpi_reg_en_a = 1'b0;
 
 		ulpi_usb_data_i_a = data_i_0;
-		ulpi_usb_data_i_start_end_a = 0;
+		ulpi_usb_data_i_start_end_a = data_i_start_stop_0;
 
 		token_0_a = 0;
 		token_0_strb_a = 0;
@@ -866,26 +863,6 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 		data_o_fail_0_a = 0;
 
 		data_i_strb_0_a = ulpi_usb_data_i_strb_a; 
-		data_i_fail_0_a = ulpi_usb_data_i_fail_a;
-	end
-	SEND_DATA_TO_ULPI_END: begin
-		ulpi_reg_addr_a = 6'd0;
-		ulpi_reg_data_i_a = 8'd0;
-		ulpi_reg_rw_a = 1'b0;
-		ulpi_reg_en_a = 1'b0;
-
-		ulpi_usb_data_i_a = 0;
-		ulpi_usb_data_i_start_end_a = 1;
-
-		token_0_a = 0;
-		token_0_strb_a = 0;
-
-		data_o_0_a = 0;
-		data_o_strb_0_a = 0;
-		data_o_end_0_a = 0;
-		data_o_fail_0_a = 0;
-	
-		data_i_strb_0_a = 0;
 		data_i_fail_0_a = ulpi_usb_data_i_fail_a;
 	end
 	default: begin

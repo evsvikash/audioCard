@@ -272,6 +272,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end else if (USB_DATA_IN_START_END) begin
 				state <= WRITE_DATA_END;
 				usb_data_o_start <= 0;
+				usb_data_o_end <= 0;
 			end else if (USB_NXT) begin
 				usb_data_o_reg <= USB_DATA_IN;
 				usb_data_o_get_next <= 1;

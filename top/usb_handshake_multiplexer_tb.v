@@ -210,6 +210,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		usb_dir <= 1;
 		
 		#10;
@@ -220,6 +222,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 		//EP == 4'b0000;
 		//ADDR == 7'b1110110
@@ -229,12 +233,16 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 		usb_data_output <= 8'b00000111;
 		if (token_0_strb == 1) $finish;
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 		usb_dir <= 0;
 		usb_nxt <= 0;
@@ -242,11 +250,15 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 		if (token_0_strb == 0) $finish;
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		if (token_0 != 23'b000001110110000000101101) $finish;
 		#10;
 	
@@ -259,6 +271,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 	
 		usb_nxt <= 1;
@@ -267,6 +281,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 	
 		#10;
 		usb_nxt <= 1;
@@ -276,6 +292,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 	
 		if (token_0_strb == 1) $finish;
@@ -283,6 +301,8 @@ always begin
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
 		if (data_o_0 != data) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		if (pid != 8'b11000011) $finish;
 		usb_nxt <= 1;
 		usb_data_output <= data + 1;
@@ -294,6 +314,8 @@ always begin
 			if (data_o_strb_0 != 1) $finish;
 			if (data_o_end_0 == 1) $finish;
 			if (data_o_fail_0 == 1) $finish;
+			if (data_i_strb_0 == 1) $finish;
+			if (data_i_fail_0 == 1) $finish;
 			if (data_o_0 != data) $finish;
 			usb_data_output <= data + 1;
 			data <= data + 1;
@@ -306,6 +328,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 != 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 
 
@@ -319,6 +343,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 	
 		usb_nxt <= 1;
@@ -327,6 +353,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 	
 		#10;
 		usb_nxt <= 1;
@@ -336,6 +364,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 	
 		if (token_0_strb == 1) $finish;
@@ -343,6 +373,8 @@ always begin
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 == 1) $finish;
 		if (data_o_0 != data) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		if (pid != 8'b11000011) $finish;
 		usb_nxt <= 1;
 		usb_data_output <= data + 1;
@@ -354,6 +386,8 @@ always begin
 			if (data_o_strb_0 != 1) $finish;
 			if (data_o_end_0 == 1) $finish;
 			if (data_o_fail_0 == 1) $finish;
+			if (data_i_strb_0 == 1) $finish;
+			if (data_i_fail_0 == 1) $finish;
 			if (data_o_0 != data) $finish;
 			usb_data_output <= data + 1;
 			data <= data + 1;
@@ -368,6 +402,8 @@ always begin
 		if (data_o_strb_0 == 1) $finish;
 		if (data_o_end_0 == 1) $finish;
 		if (data_o_fail_0 != 1) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
 		#10;
 		
 	end
@@ -376,7 +412,7 @@ always begin
 
 	data <= 0;
 	#10;
-	repeat(5) begin
+//	repeat(5) begin
 		data_i_0 <= data;
 		data_i_start_stop_0 <= 1;
 		if (usb_data_input != 0) $finish;
@@ -427,7 +463,7 @@ always begin
 		//TODO: send only PID
 		//TODO: failure.
 		//TODO: usb_nxt strobing
-	end
+//	end
 
 	#300;
 	
