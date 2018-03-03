@@ -521,9 +521,52 @@ always begin
 		if (data_i_fail_0 == 1) $finish;
 		if (usb_stp != 1) $finish;
 		#10;
-		
-		//TODO: failure.
-		//TODO: usb_nxt strobing
+			
+		data_i_start_stop_0 <= 1;
+		data_i_0 <= data;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+
+		data_i_start_stop_0 <= 0;
+		if (usb_data_input != 0) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+
+		if (usb_data_input != 0) $finish;
+		if (data_i_strb_0 != 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+
+		if (usb_data_input != {4'b0100, data[3:0]}) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+
+		if (usb_data_input != {4'b0100, data[3:0]}) $finish;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+
+		usb_dir <= 1;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 == 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+
+		usb_dir <= 0;
+		if (data_i_strb_0 == 1) $finish;
+		if (data_i_fail_0 != 1) $finish;
+		if (usb_stp == 1) $finish;
+		#10;
+	
+		//TODO: usb_nxt strobing ?
 	end
 
 	#300;

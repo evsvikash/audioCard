@@ -281,6 +281,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			end
 		end
 		WRITE_DATA_END: begin
+			// TODO what if (USB_DIR == 1)?
 			state <= IDLE;
 		end
 		READ_DATA: begin

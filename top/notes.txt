@@ -12,7 +12,5 @@ vsim work.ULPI_tb -L fiftyfivenm_ver
 
 --- 
 
-write test for data_i in usb_...
-check if every reg is described in sensitive-list
-rename ports and use EP_selected port.
-
+1. tests, more corner-cases!
+2. 

@@ -141,20 +141,6 @@ parameter FUN_CTRL_REG = `REG_MAP_SIZE'h04;
 parameter OTG_CTRL_REG  = `REG_MAP_SIZE'h0A;
 parameter SCRATCH_REG   = `REG_MAP_SIZE'h16;
 
-parameter PID_OUT = 8'b11100001;
-parameter PID_IN  = 8'b01101001;
-parameter PID_SOF = 8'b10100101;
-parameter PID_SETUP = 8'b00101101;
-parameter PID_DATA0 = 8'b11000011;
-parameter PID_DATA1 = 8'b01001011;
-parameter PID_DATA2 = 8'b10000111;
-parameter PID_MDATA = 8'b00001111;
-parameter PID_ACK = 8'b11010010;
-parameter PID_NAK = 8'b01011010;
-parameter PID_STALL = 8'b00011110;
-parameter PID_NYET = 8'b10010110;
-parameter PID_PING = 8'b10110100;
-
 reg [`PARAM_SIZE - 1 : 0] state, next_state, previous_state;
 reg [7 : 0] ulpi_reg_data_o, ulpi_rxcmd_o, fun_ctrl_reg_val;
 reg [1:0] cnt;
