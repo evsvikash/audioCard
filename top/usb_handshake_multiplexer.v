@@ -409,7 +409,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	end
 end
 
-always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_usb_data_o_strb_a, ulpi_usb_data_o_end_a, ulpi_usb_data_o_fail_a, data_i_0, ulpi_usb_data_i_strb_a, ulpi_usb_data_i_fail_a) begin
+always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_usb_data_o_strb_a, ulpi_usb_data_o_end_a, ulpi_usb_data_o_fail_a, data_i_0, data_i_start_stop_0, ulpi_usb_data_i_strb_a, ulpi_usb_data_i_fail_a) begin
 	case (state)
 	RESET: begin
 		ulpi_reg_addr_a = 6'd0;

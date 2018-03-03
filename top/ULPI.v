@@ -132,7 +132,9 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			usb_data_o_start <= 1;	
 		end else if (usb_data_o_get_next == 1) begin
 			usb_data_o_get_next <= 0;
-		end else if (USB_DATA_IN_START_END && usb_data_o_start) begin
+		end
+
+		if (USB_DATA_IN_START_END && usb_data_o_start) begin
 			usb_data_o_end <= 1;
 		end
 		// end of RO/USBWHT"SCH"SYS -----------------------------------
