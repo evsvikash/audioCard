@@ -7,10 +7,11 @@
 
 
 What should I call to get gate-level sim:
-vsim work.ULPI_tb -L fiftyfivenm_ver
+run simulation from compilation (project serttings)
 
 
 --- 
 
+0. run on hardware.
 1. tests, more corner-cases!
-2. 
+2. move out ULPI from muxes. thats stupid
