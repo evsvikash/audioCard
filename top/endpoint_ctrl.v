@@ -61,11 +61,10 @@ always @(posedge clk, negedge nrst) begin
 	case (state)
 	IDLE: begin
 		if (token_in_strb) begin
-			state <= DETECT_PARITY;
+			state <= DETECT_PID;
 		end
 	end
 	DETECT_PID: begin
-
 		if (data_in_strb) begin
 			state <= DETECT_REQUEST_TYPE;
 		end else if (data_in_end || data_in_fail) begin
@@ -125,38 +124,44 @@ always @(state, data_o_strb) begin
 	case (state)
 	IDLE: begin
 		data_o_a = 0;
-		data_o_start_stop = 0;
+		data_o_start_stop_a = 0;
 	end
 	DETECT_PID: begin
 		data_o_a = 0;
-		data_o_start_stop = 0;	
+		data_o_start_stop_a = 0;	
 	end
 	DETECT_REQUEST_TYPE: begin
 		data_o_a = 0;
-		data_o_start_stop = 0;	
+		data_o_start_stop_a = 0;	
 	end
 	DETECT_REQUEST: begin
 		data_o_a = 0;
-		data_o_start_stop = 0;	
+		data_o_start_stop_a = 0;	
 	end
 	GET_ADDRESS: begin
 		data_o_a = 0;
-		data_o_start_stop = 0;	
+		data_o_start_stop_a = 0;	
 	end
 	IGNORE_REST: begin
 		data_o_a = 0;
-		data_o_start_stop = 0;	
+		data_o_start_stop_a = 0;	
 	end
 	SEND_ACK: begin
 		data_o_a = PID_ACK;
-		data_o_start_stop = 1;
+		data_o_start_stop_a = 1;
+	end
 	SEND_END: begin
 		data_o_a = 0;
 		if (data_o_strb)
-			data_o_start_stop = 1;
+			data_o_start_stop_a = 1;
 		else
-			data_o_start_stop = 0;
-	end	
+			data_o_start_stop_a = 0;
+	end
+	default: begin
+		data_o_a = 0;
+		data_o_start_stop_a = 0;
+	end
+	endcase
 end
 
 endmodule
