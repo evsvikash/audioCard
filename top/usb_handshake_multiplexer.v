@@ -197,7 +197,7 @@ always @(posedge clk_10MHz, negedge nrst_clk_10MHz_cnt) begin
 	end
 end
 
-reg [7:0] led_val;
+//reg [7:0] led_val;
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
 
@@ -218,7 +218,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	
 		selected_EP <= 0;
 
-		led_val <= 0;
+		//led_val <= 0;
 
 		pid <= 0;
 	end else begin
@@ -330,6 +330,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					*/
 					token[7:0] <= ulpi_usb_data_o_a;
 					token_part <= 1;
+//					led_val <= 8'b01010101;
 				end else if (ulpi_usb_data_o_a == PID_DATA0 || 
 					     ulpi_usb_data_o_a == PID_DATA1) begin
 					state <= SEND_DATA_TO_EP;
@@ -887,6 +888,6 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 	endcase
 end
 
-assign LED = ~state;
+assign LED = state;
 
 endmodule

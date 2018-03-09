@@ -45,7 +45,7 @@ usb_handshake_multiplexer (
 	.data_i_strb_0(data_i_strb_0),
 	.data_i_fail_0(data_i_fail_0)
 );
-/*
+
 endpoint_ctrl (
 	.nrst(NRST),
 	.clk(USB_CLKIN),
@@ -60,5 +60,5 @@ endpoint_ctrl (
 	.data_o_start_stop(data_i_start_stop_0),
 	.data_o_strb(data_i_strb_0),
 	.data_o_fail(data_i_fail_0)
-);*/
+);
 endmodule
