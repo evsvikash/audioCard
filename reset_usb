@@ -1,1 +1,1 @@
-sudo modprobe -r usbhid && sleep 5 && sudo modprobe usbhid
+sudo modprobe -r usbhid && sleep 1 && sudo modprobe usbhid
