@@ -12,7 +12,9 @@ module endpoint_ctrl (
 	output [7:0] data_o,
 	output data_o_start_stop,
 	input data_o_strb,
-	input data_o_fail
+	input data_o_fail,
+
+	output [7:0] led
 );
 
 reg [7:0] data_o_a;
@@ -23,14 +25,15 @@ parameter IDLE = `PARAM_SIZE'd0;
 parameter DETECT_PID = `PARAM_SIZE'd1;
 parameter DETECT_REQUEST_TYPE = `PARAM_SIZE'd2;
 parameter DETECT_REQUEST = `PARAM_SIZE'd3;
-parameter GET_ADDRESS = `PARAM_SIZE'd4;
+parameter SET_ADDRESS = `PARAM_SIZE'd4;
 parameter IGNORE_REST = `PARAM_SIZE'd5;
 parameter SEND_ACK = `PARAM_SIZE'd6;
-parameter SEND_END = `PARAM_SIZE'd7; 
+parameter SEND_NAK = `PARAM_SIZE'd7;
+parameter SEND_END = `PARAM_SIZE'd8; 
 
 reg [`PARAM_SIZE - 1 : 0] state, next_state;
-reg [7:0] cnt_to_ignore;
-reg toggle_bit;
+
+reg [7:0] led_val;
 
 parameter PID_OUT = 8'b11100001;
 parameter PID_IN  = 8'b01101001;
@@ -46,7 +49,26 @@ parameter PID_STALL = 8'b00011110;
 parameter PID_NYET = 8'b10010110;
 parameter PID_PING = 8'b10110100;
 
-parameter SET_ADDRESS = 8'd5;
+parameter REQ_GET_STATUS = 8'd0;
+parameter REQ_CLEAR_FEATURE = 8'd1;
+parameter REQ_SET_FEATURE = 8'd2;
+parameter REQ_SET_ADDRESS = 8'd5;
+parameter REQ_GET_DESCRIPTOR = 8'd6;
+parameter REQ_SET_DESCRIPTOR = 8'd7;
+parameter REQ_GET_CONFIGURATION = 8'd8;
+parameter REQ_SET_CONFIGURATION = 8'd9;
+parameter REQ_GET_INTERFACE = 8'd10;
+parameter REQ_SET_INTERFACE = 8'd11;
+parameter REQ_SYNCH_FRAME = 8'd12;
+
+parameter DESC_DEVICE = 8'd1;
+parameter DESC_CONFIGURATION = 8'd2;
+parameter DESC_STRING = 8'd3;
+parameter DESC_INTERFACE = 8'd4;
+parameter DESC_ENDPOINT = 8'd5;
+parameter DESC_DEVICE_QUALIFIER = 8'd6;
+parameter DESC_OTHER_SPEED_CONFIGURATION = 8'd7;
+parameter DESC_INTERFACE_POWER = 8'd8;
 
 assign data_o = data_o_a;
 assign data_o_start_stop = data_o_start_stop_a;
@@ -55,8 +77,7 @@ always @(posedge clk, negedge nrst) begin
 	if (!nrst) begin
 		state <= IDLE;
 		next_state <= IDLE;
-		toggle_bit <= 0;
-		cnt_to_ignore <= 0;
+		led_val <= 0;
 	end else begin
 	case (state)
 	IDLE: begin
@@ -79,16 +100,53 @@ always @(posedge clk, negedge nrst) begin
 	end
 	DETECT_REQUEST: begin
 		if (data_in_strb) begin
-			if (data_in == SET_ADDRESS) begin
-				state <= GET_ADDRESS;
+			next_state <= IDLE;
+			if (data_in == REQ_SET_ADDRESS) begin
+				led_val <= REQ_SET_ADDRESS;
+				state <= SET_ADDRESS;
+			end else if (data_in == REQ_CLEAR_FEATURE) begin
+				led_val <= REQ_CLEAR_FEATURE;
+				state <= IGNORE_REST;
+				next_state <= SEND_ACK;
+			end else if (data_in == REQ_GET_CONFIGURATION) begin
+				led_val <= REQ_GET_CONFIGURATION;
+				state <= IGNORE_REST;
+				next_state <= SEND_ACK;
+			end else if (data_in == REQ_GET_DESCRIPTOR) begin
+				led_val <= REQ_GET_DESCRIPTOR;
+				state <= IGNORE_REST;
+				next_state <= SEND_ACK;
+			end else if (data_in == REQ_GET_STATUS) begin
+				led_val <= 8'b00111100;
+				state <= IGNORE_REST;
+				next_state <= SEND_ACK;
+			end else if (data_in == REQ_SET_CONFIGURATION) begin
+				led_val <= REQ_SET_CONFIGURATION;
+				state <= IGNORE_REST;
+				next_state <= SEND_ACK;
+			end else if (data_in == REQ_SET_DESCRIPTOR) begin
+				led_val <= REQ_SET_DESCRIPTOR;
+				state <= IGNORE_REST;
+				next_state <= SEND_ACK;
+			end else if (data_in == REQ_SET_FEATURE) begin
+				led_val <= REQ_SET_FEATURE;
+				state <= IGNORE_REST;
+				next_state <= SEND_ACK;
+			end else if (data_in == REQ_SET_INTERFACE) begin
+				led_val <= REQ_SET_INTERFACE;
+				state <= IGNORE_REST;
+				next_state <= SEND_ACK;
 			end else begin
-				state <= IDLE;
+				state <= IGNORE_REST;
+				next_state <= SEND_NAK;
 			end
+
 		end else if (data_in_end || data_in_fail) begin
 			state <= IDLE;
+			led_val <= 8'b01010101;
 		end
 	end
-	GET_ADDRESS: begin
+	SET_ADDRESS: begin
 		if (data_in_strb) begin
 			next_state <= SEND_ACK;
 			state <= IGNORE_REST;
@@ -104,6 +162,9 @@ always @(posedge clk, negedge nrst) begin
 		end
 	end
 	SEND_ACK: begin
+		state <= SEND_END;
+	end
+	SEND_NAK: begin
 		state <= SEND_END;
 	end
 	SEND_END: begin
@@ -138,7 +199,7 @@ always @(state, data_o_strb) begin
 		data_o_a = 0;
 		data_o_start_stop_a = 0;	
 	end
-	GET_ADDRESS: begin
+	SET_ADDRESS: begin
 		data_o_a = 0;
 		data_o_start_stop_a = 0;	
 	end
@@ -148,6 +209,10 @@ always @(state, data_o_strb) begin
 	end
 	SEND_ACK: begin
 		data_o_a = PID_ACK;
+		data_o_start_stop_a = 1;
+	end
+	SEND_NAK: begin
+		data_o_a = PID_NAK;
 		data_o_start_stop_a = 1;
 	end
 	SEND_END: begin
@@ -163,6 +228,8 @@ always @(state, data_o_strb) begin
 	end
 	endcase
 end
+
+assign led = led_val;
 
 endmodule
 
