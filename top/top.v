@@ -9,7 +9,7 @@ module top (
 	output	USB_RESETN,		//Reset PHY
 	output	USB_STP,
 
-	inout [7:0] LED
+	output [7:0] LED
 );
 
 wire clk_10MHz;
@@ -21,7 +21,7 @@ wire data_o_strb_0, data_o_end_0, data_o_fail_0, data_i_start_stop_0;
 wire data_i_strb_0, data_i_fail_0;
 wire [7:0] data_i_0, pid;
 
-usb_handshake_multiplexer (
+usb_handshake_multiplexer D_0 (
 	.NRST(NRST),
 	.USB_CLKIN(USB_CLKIN),
 	.USB_CS(USB_CS),
@@ -30,7 +30,7 @@ usb_handshake_multiplexer (
 	.USB_NXT(USB_NXT),
 	.USB_RESETN(USB_RESETN),
 	.USB_STP(USB_STP),
-	.LED(LED),
+//	.LED(LED),
 	.clk_10MHz_o(clk_10MHz),
 
 	.token_0(token_0),
@@ -46,7 +46,7 @@ usb_handshake_multiplexer (
 	.data_i_fail_0(data_i_fail_0)
 );
 
-endpoint_ctrl (
+endpoint_ctrl D_1 (
 	.nrst(NRST),
 	.clk(USB_CLKIN),
 	.token_in(token_0),
@@ -59,6 +59,7 @@ endpoint_ctrl (
 	.data_o(data_i_0),
 	.data_o_start_stop(data_i_start_stop_0),
 	.data_o_strb(data_i_strb_0),
-	.data_o_fail(data_i_fail_0)
+	.data_o_fail(data_i_fail_0),
+	.led(LED)
 );
 endmodule
