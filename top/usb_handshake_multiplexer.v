@@ -78,6 +78,9 @@ assign data_o_fail_0 = data_o_fail_0_a;
 assign data_i_strb_0 = data_i_strb_0_a;
 assign data_i_fail_0 = data_i_fail_0_a;
 
+
+reg [7:0] led_a;
+assign LED = led_a;
 ULPI ULPI_0 (
 	.CLK_60M(CLK_60M),
 	.NRST_A_USB(NRST_A_USB),
@@ -197,7 +200,7 @@ always @(posedge clk_10MHz, negedge nrst_clk_10MHz_cnt) begin
 	end
 end
 
-//reg [7:0] led_val;
+reg [7:0] led_val;
 always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	if (!NRST_A_USB) begin
 
@@ -218,7 +221,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	
 		selected_EP <= 0;
 
-		//led_val <= 0;
+		led_val <= 0;
 
 		pid <= 0;
 	end else begin
@@ -320,6 +323,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 			state <= WAIT_RD;
 		end*/
 		IDLE: begin
+			led_val <= 8'b01011010;
 			if (ulpi_usb_data_o_strb_a) begin
 				if (ulpi_usb_data_o_a == PID_SETUP) begin
 					state <= SETUP_TOKEN;
@@ -330,7 +334,6 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					*/
 					token[7:0] <= ulpi_usb_data_o_a;
 					token_part <= 1;
-//					led_val <= 8'b01010101;
 				end else if (ulpi_usb_data_o_a == PID_DATA0 || 
 					     ulpi_usb_data_o_a == PID_DATA1) begin
 					state <= SEND_DATA_TO_EP;
@@ -360,6 +363,7 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 					end
 				end
 				default: begin
+					led_val <= 8'b10010000;
 					state <= IDLE;
 				end
 				endcase
@@ -409,7 +413,10 @@ always @(posedge CLK_60M, negedge NRST_A_USB) begin
 	end
 end
 
-always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_usb_data_o_strb_a, ulpi_usb_data_o_end_a, ulpi_usb_data_o_fail_a, data_i_0, data_i_start_stop_0, ulpi_usb_data_i_strb_a, ulpi_usb_data_i_fail_a) begin
+always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_usb_data_o_strb_a, ulpi_usb_data_o_end_a, ulpi_usb_data_o_fail_a, data_i_0, data_i_start_stop_0, ulpi_usb_data_i_strb_a, ulpi_usb_data_i_fail_a, led_val) begin
+
+	led_a = led_val;
+
 	case (state)
 	RESET: begin
 		ulpi_reg_addr_a = 6'd0;
@@ -887,7 +894,5 @@ always @(state, fun_ctrl_reg_val, token, selected_EP, ulpi_usb_data_o_a, ulpi_us
 	end
 	endcase
 end
-
-assign LED = state;
 
 endmodule
